@@ -1,7 +1,8 @@
 namespace backend.Services
 {
-public interface ITokenService
+    public interface ITokenService
     {
         Task<string> GetTokenAsync();
+        Task<bool> IsTokenValidAsync();
     }
 }

@@ -8,6 +8,9 @@ C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\backend.dll
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\backend.pdb
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\Microsoft.AspNetCore.OpenApi.dll
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\Microsoft.OpenApi.dll
+C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\Swashbuckle.AspNetCore.Swagger.dll
+C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerGen.dll
+C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerUI.dll
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.csproj.AssemblyReference.cache
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\rpswa.dswa.cache.json
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.GeneratedMSBuildEditorConfig.editorconfig
@@ -16,6 +19,7 @@ C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.Assemb
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.csproj.CoreCompileInputs.cache
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.MvcApplicationPartsAssemblyInfo.cs
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.sourcelink.json
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\rjimswa.dswa.cache.json
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\rjsmrazor.dswa.cache.json
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\rjsmcshtml.dswa.cache.json
@@ -30,7 +34,3 @@ C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\refint\backend
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.pdb
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.genruntimeconfig.cache
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\ref\backend.dll
-C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\Swashbuckle.AspNetCore.Swagger.dll
-C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerGen.dll
-C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerUI.dll
-C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.sourcelink.json
