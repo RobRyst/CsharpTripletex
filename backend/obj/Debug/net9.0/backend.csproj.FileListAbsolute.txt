@@ -30,3 +30,7 @@ C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\refint\backend
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.pdb
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.genruntimeconfig.cache
 C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\ref\backend.dll
+C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\Swashbuckle.AspNetCore.Swagger.dll
+C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerGen.dll
+C:\Users\Ryzta\Documents\CsharpTripletex\backend\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerUI.dll
+C:\Users\Ryzta\Documents\CsharpTripletex\backend\obj\Debug\net9.0\backend.sourcelink.json
