@@ -4,5 +4,6 @@ namespace backend.Services
     {
         Task<string> GetTokenAsync();
         Task<bool> IsTokenValidAsync();
+        Task<string> GetCustomersAsync();
     }
 }
