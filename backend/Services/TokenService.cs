@@ -92,7 +92,7 @@ namespace backend.Services
             {
                 var token = await GetTokenAsync();
                 
-                var request = new HttpRequestMessage(HttpMethod.Get, "https://api-test.tripletex.tech/v2/company");
+                var request = new HttpRequestMessage(HttpMethod.Get, "https://api-test.tripletex.tech/v2/customer");
                 
                 var authValue = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"0:{token}"));
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authValue);
