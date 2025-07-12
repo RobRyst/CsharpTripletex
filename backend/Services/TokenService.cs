@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.Logging;
+using backend.Domain.interfaces;
 
 namespace backend.Services
 {
