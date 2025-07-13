@@ -4,21 +4,14 @@ using backend.Domain.Models;
 
 namespace backend.Services
 {
-    public class CustomerService : ICustomerService
+    public class CustomerService(
+        ITokenService tokenService,
+        ICustomerRepository customerRepository,
+        ILogger<CustomerService> logger) : ICustomerService
     {
-        private readonly ITokenService _tokenService;
-        private readonly ICustomerRepository _customerRepository;
-        private readonly ILogger<CustomerService> _logger;
-
-        public CustomerService(
-            ITokenService tokenService, 
-            ICustomerRepository customerRepository,
-            ILogger<CustomerService> logger)
-        {
-            _tokenService = tokenService;
-            _customerRepository = customerRepository;
-            _logger = logger;
-        }
+        private readonly ITokenService _tokenService = tokenService;
+        private readonly ICustomerRepository _customerRepository = customerRepository;
+        private readonly ILogger<CustomerService> _logger = logger;
 
         public async Task<IEnumerable<Customer>> GetCustomersFromDatabaseAsync()
         {
@@ -54,7 +47,6 @@ namespace backend.Services
             try
             {
                 var jsonDoc = JsonDocument.Parse(jsonResponse);
-                
                 if (jsonDoc.RootElement.TryGetProperty("values", out var valuesElement))
                 {
                     foreach (var customerElement in valuesElement.EnumerateArray())

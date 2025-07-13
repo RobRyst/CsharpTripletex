@@ -31,7 +31,7 @@ namespace backend.Respository
         public async Task<Customer?> GetByTripletexIdAsync(int tripletexId)
         {
             return await _context.Customers
-                .FirstOrDefaultAsync(c => c.TripletexId == tripletexId);
+                .FirstOrDefaultAsync(customer => customer.TripletexId == tripletexId);
         }
 
         public async Task<Customer> CreateAsync(Customer customer)
@@ -70,14 +70,12 @@ namespace backend.Respository
                 var existingCustomer = await GetByTripletexIdAsync(customer.TripletexId);
                 if (existingCustomer != null)
                 {
-                    // Update existing customer
                     existingCustomer.Name = customer.Name;
                     existingCustomer.Email = customer.Email;
                     _context.Entry(existingCustomer).State = EntityState.Modified;
                 }
                 else
                 {
-                    // Add new customer
                     _context.Customers.Add(customer);
                 }
             }
