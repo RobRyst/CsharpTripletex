@@ -1,7 +1,51 @@
-namespace backend.Services
+using System.Text.Json;
+using backend.Domain.interfaces;
+using backend.Dtos;
+
+public class TripleTexService
 {
-    public class TripleTex
+    private readonly HttpClient _httpClient;
+    private readonly ITokenService _tokenService;
+    private readonly ILogger<TripleTexService> _logger;
+
+    public TripleTexService(HttpClient httpClient, ITokenService tokenService, ILogger<TripleTexService> logger)
     {
-        
+        _httpClient = httpClient;
+        _tokenService = tokenService;
+        _logger = logger;
+    }
+
+    public async Task<List<CustomerDto>> GetCustomersAsync()
+    {
+        try
+        {
+            var authHeader = await _tokenService.GetAuthorizationAsync();
+
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://api-test.tripletex.tech/v2/customer");
+            request.Headers.Add("Authorization", authHeader);
+
+            _logger.LogInformation("Henter kunder fra Tripletex API...");
+
+            var response = await _httpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Feil ved henting av kunder: {StatusCode} - {Error}", response.StatusCode, error);
+                throw new HttpRequestException($"Henting av kunder feilet: {response.StatusCode}");
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<CustomerListResponse>(json);
+
+            _logger.LogInformation("Kunder hentet OK ({Count})", result?.Values?.Count ?? 0);
+
+            return result?.Values ?? new List<CustomerDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Klarte ikke å hente kunder fra Tripletex");
+            throw;
+        }
     }
 }

@@ -4,6 +4,6 @@ namespace backend.Domain.interfaces
     {
         Task<string> GetTokenAsync();
         Task<bool> IsTokenValidAsync();
-        Task<string> GetCustomersAsync();
+        Task<string> GetAuthorizationAsync();
     }
 }
