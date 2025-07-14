@@ -22,8 +22,6 @@ namespace backend.Infrastructure.Data
                 entity.Property(e => e.TripletexId).IsRequired();
                 entity.Property(e => e.Name).HasMaxLength(255);
                 entity.Property(e => e.Email).HasMaxLength(255);
-                
-                // Create unique index on TripletexId to prevent duplicates
                 entity.HasIndex(e => e.TripletexId).IsUnique();
             });
 
