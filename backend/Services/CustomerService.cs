@@ -4,7 +4,7 @@ using backend.Domain.Models;
 
 namespace backend.Services
 {
-    public class CustomerService {
+    public class CustomerService : ICustomerService {
         private readonly HttpClient _httpClient;
         private readonly ITokenService _tokenService;
         private readonly ICustomerRepository _customerRepository;
