@@ -8,6 +8,8 @@ namespace backend.Domain.Entities
     {
         [Key]
         public int Id { get; set; }
+        
+        public int TripletexId { get; set; }
         public required string Status { get; set; }
         public required double Total { get; set; }
         public required DateOnly InvoiceCreated { get; set; }

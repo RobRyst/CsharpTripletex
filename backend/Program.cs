@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using backend.Services;
 using backend.Infrastructure.Data;
 using backend.Respository;
+using backend.Domain.Interfaces;
+using backend.Repositories;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,9 +19,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
     ));
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddLogging();
-
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())

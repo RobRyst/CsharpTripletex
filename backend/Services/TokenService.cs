@@ -1,100 +1,116 @@
+using backend.Services;
 using System.Text.Json;
+using System.Net.Http.Json;
+using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.Extensions.Logging;
 using backend.Domain.interfaces;
 
-public class TokenService : ITokenService
+namespace backend.Services
 {
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<TokenService> _logger;
-    private readonly IConfiguration _config;
-
-    private string? _bearerToken;
-    private DateTime _expireDateToken;
-
-    public TokenService(
-        HttpClient httpClient,
-        IConfiguration config,
-        ILogger<TokenService> logger)
+    public class TokenService : ITokenService
     {
-        _httpClient = httpClient;
-        _config = config;
-        _logger = logger;
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "YourApp/1.0");
-    }
+        private readonly HttpClient _httpClient;
+        private readonly ILogger<TokenService> _logger;
+        private readonly IConfiguration _config;
 
-    public async Task<string> GetTokenAsync()
-    {
-        if (_bearerToken != null && DateTime.UtcNow < _expireDateToken)
+        private string? _bearerToken;
+        private DateTime _expireDateToken;
+
+        public TokenService(HttpClient httpClient, IConfiguration config, ILogger<TokenService> logger)
         {
-            return _bearerToken!;
+            _httpClient = httpClient;
+            _config = config;
+            _logger = logger;
+            
+            // Set User-Agent header (required by Tripletex API)
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "YourApp/1.0");
         }
 
-        try
+        public async Task<string> GetTokenAsync()
         {
+            if (_bearerToken != null && DateTime.UtcNow < _expireDateToken)
+            {
+                return _bearerToken;
+            }
+
             var consumerToken = _config["Tripletex:ConsumerToken"];
             var employeeToken = _config["Tripletex:EmployeeToken"];
 
             if (string.IsNullOrEmpty(consumerToken) || string.IsNullOrEmpty(employeeToken))
             {
-                throw new InvalidOperationException("Token-konfigurasjon mangler i appsettings.json");
+                throw new InvalidOperationException("Consumer token and employee token must be configured in appsettings.json");
             }
 
             var expirationDate = DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd");
-
+            
             var url = $"https://api-test.tripletex.tech/v2/token/session/:create?consumerToken={Uri.EscapeDataString(consumerToken)}&employeeToken={Uri.EscapeDataString(employeeToken)}&expirationDate={expirationDate}";
 
-            _logger.LogInformation("Henter nytt token fra Tripletex...");
-
-            var response = await _httpClient.PutAsync(url, null);
-
-            if (!response.IsSuccessStatusCode)
+            try
             {
-                var error = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Token-feil ({Status}): {Error}", response.StatusCode, error);
-                throw new HttpRequestException("Token-request feilet");
-            }
+                _logger.LogInformation("Requesting token with expiration date: {ExpirationDate}", expirationDate);
+                
+                var response = await _httpClient.PutAsync(url, null);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Token request failed with status {StatusCode}: {ErrorContent}", 
+                        response.StatusCode, errorContent);
+                    throw new HttpRequestException($"Token request failed: {response.StatusCode}");
+                }
 
-            var json = await response.Content.ReadAsStringAsync();
-            var parsed = JsonDocument.Parse(json);
+                var jsonResponse = await response.Content.ReadAsStringAsync();
+                var json = JsonSerializer.Deserialize<JsonElement>(jsonResponse);
+                
+                if (json.TryGetProperty("value", out var valueProperty))
+                {
+                    _bearerToken = valueProperty.GetProperty("token").GetString();
+                    _expireDateToken = DateTime.UtcNow.AddHours(23);
+                }
+                else
+                {
+                    throw new InvalidOperationException("Invalid token response format");
+                }
 
-            if (parsed.RootElement.TryGetProperty("value", out var value))
-            {
-                _bearerToken = value.GetProperty("token").GetString();
-                _expireDateToken = DateTime.UtcNow.AddHours(23);
-                _logger.LogInformation("Token hentet OK");
+                _logger.LogInformation("Successfully obtained bearer token");
                 return _bearerToken!;
             }
-
-            throw new InvalidOperationException("Respons fra Tripletex mangler 'value.token'");
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to obtain bearer token");
+                throw;
+            }
         }
-        catch (Exception ex)
+
+        public async Task<bool> IsTokenValidAsync()
         {
-            _logger.LogError(ex, "Kunne ikke hente token fra Tripletex");
-            throw;
+            try
+            {
+                var authHeader = await GetAuthorizationAsync();
+                var request = new HttpRequestMessage(HttpMethod.Get, "https://api-test.tripletex.tech/v2/customer");
+                request.Headers.Add("Authorization", authHeader);
+                
+                var response = await _httpClient.SendAsync(request);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Token validation failed with status {StatusCode}", response.StatusCode);
+                }
+                
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating token");
+                return false;
+            }
         }
-    }
 
-    public async Task<string> GetAuthorizationAsync()
-    {
-        var token = await GetTokenAsync();
-        var authValue = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"0:{token}"));
-        return $"Basic {authValue}";
-    }
-
-    public async Task<bool> IsTokenValidAsync()
-    {
-        try
+        public async Task<string> GetAuthorizationAsync()
         {
-            var authHeader = await GetAuthorizationAsync();
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api-test.tripletex.tech/v2/customer");
-            request.Headers.Add("Authorization", authHeader);
-
-            var response = await _httpClient.SendAsync(request);
-            return response.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Feil ved validering av token");
-            return false;
+            var token = await GetTokenAsync();
+            var authValue = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"0:{token}"));
+            return $"Basic {authValue}";
         }
     }
 }

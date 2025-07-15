@@ -5,7 +5,9 @@ namespace backend.Domain.Entities
     public class User
     {
         [Key]
-        public int id { get; set; }
+        public int Customerid { get; set; }
+
+        public int TripletexId { get; set; }
 
         [MaxLength(100)]
         public required string Name { get; set; } = string.Empty;
