@@ -14,9 +14,9 @@ public class CustomerImportService
 
     public async Task ImportCustomersAsync()
     {
-        var customersFromApi = await _client.GetCustomersAsync();
+        var customersFromTripletexApi = await _client.GetCustomersAsync();
 
-        foreach (var dto in customersFromApi)
+        foreach (var dto in customersFromTripletexApi)
         {
             var customer = new Customer
             {

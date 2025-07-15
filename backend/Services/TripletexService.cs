@@ -38,7 +38,7 @@ public class TripleTexService
             var json = await response.Content.ReadAsStringAsync();
             var result = JsonSerializer.Deserialize<CustomerListResponse>(json);
 
-            _logger.LogInformation("Kunder hentet OK ({Count})", result?.Values?.Count ?? 0);
+            _logger.LogInformation("Kunder hentet OK, Antall Kunder: ({Count})", result?.Values?.Count ?? 0);
 
             return result?.Values ?? new List<CustomerDto>();
         }

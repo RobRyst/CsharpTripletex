@@ -42,35 +42,6 @@ namespace backend.Repositories
                 .FirstOrDefaultAsync(invoice => invoice.TripletexId == tripletexId);
         }
 
-        public async Task<Invoice> CreateAsync(Invoice invoice)
-        {
-            _context.Invoices.Add(invoice);
-            await _context.SaveChangesAsync();
-            return invoice;
-        }
-
-        public async Task<Invoice> UpdateAsync(Invoice invoice)
-        {
-            _context.Entry(invoice).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
-            return invoice;
-        }
-
-        public async Task DeleteAsync(int id)
-        {
-            var invoice = await _context.Invoices.FindAsync(id);
-            if (invoice != null)
-            {
-                _context.Invoices.Remove(invoice);
-                await _context.SaveChangesAsync();
-            }
-        }
-
-        public async Task<bool> ExistsAsync(int tripletexId)
-        {
-            return await _context.Invoices.AnyAsync(invoice => invoice.TripletexId == tripletexId);
-        }
-
         public async Task BulkUpsertAsync(IEnumerable<Invoice> invoices)
         {
             foreach (var invoice in invoices)
