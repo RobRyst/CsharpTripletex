@@ -4,8 +4,8 @@ namespace backend.Domain.interfaces
 {
     public interface ICustomerService
     {
-        Task<IEnumerable<Customer>> GetCustomersFromDatabaseAsync();
-        Task<string> GetCustomersAsync();
+        Task<IEnumerable<Customer>> GetCustomersAsync();
+        Task<string> GetCustomerById();
         Task SyncCustomersFromTripletexAsync();
     }
 }

@@ -50,9 +50,9 @@ namespace backend.Services
             return await _invoiceRepository.GetAllAsync();
         }
 
-        public async Task<Invoice> GetByIdAsync(int id)
+        public async Task<Invoice> GetInvoiceByIdAsync(int id)
         {
-            var invoice = await _invoiceRepository.GetByIdAsync(id);
+            var invoice = await _invoiceRepository.GetInvoiceByIdAsync(id);
             if (invoice == null)
             {
                 throw new KeyNotFoundException($"Invoice with id {id} not found");

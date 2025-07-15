@@ -1,4 +1,5 @@
 using backend.Domain.interfaces;
+using backend.Domain.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.Controllers
@@ -21,13 +22,23 @@ namespace backend.Controllers
         {
             try
             {
-                var customers = await _customerService.GetCustomersFromDatabaseAsync();
+                var customers = await _customerService.GetCustomersAsync();
                 return Ok(customers);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving customers from database");
                 return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetCustomer(int id)
+        {
+            try
+            {
+                var customer = await _customerService.GetCustomerById(id);
+                return Ok(customer)
             }
         }
 

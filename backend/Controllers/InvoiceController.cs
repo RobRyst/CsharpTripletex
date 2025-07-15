@@ -36,7 +36,7 @@ namespace backend.Controllers
         {
             try
             {
-                var invoice = await _invoiceService.GetByIdAsync(id);
+                var invoice = await _invoiceService.GetInvoiceByIdAsync(id);
                 return Ok(invoice);
             }
             catch (KeyNotFoundException)
