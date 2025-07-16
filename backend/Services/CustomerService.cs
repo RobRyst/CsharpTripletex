@@ -28,46 +28,75 @@ namespace backend.Services
         }
 
 
-    public async Task<string> GetCustomersAsync()
-        {
-            var authHeader = await _tokenService.GetAuthorizationAsync();
+public async Task<IEnumerable<Customer>> GetCustomersAsync()
+{
+    var authHeader = await _tokenService.GetAuthorizationAsync();
 
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api-test.tripletex.tech/v2/customer");
-            request.Headers.Add("Authorization", authHeader);
+    var request = new HttpRequestMessage(HttpMethod.Get, "https://api-test.tripletex.tech/v2/customer");
+    request.Headers.Add("Authorization", authHeader);
 
-            var response = await _httpClient.SendAsync(request);
+    var response = await _httpClient.SendAsync(request);
 
-            if (!response.IsSuccessStatusCode)
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Feil ved henting av kunder: {Status} - {Error}", response.StatusCode, error);
-                throw new HttpRequestException("Henting av kunder feilet");
-            }
+    if (!response.IsSuccessStatusCode)
+    {
+        var error = await response.Content.ReadAsStringAsync();
+        _logger.LogError("Feil ved henting av kunder: {Status} - {Error}", response.StatusCode, error);
+        throw new HttpRequestException("Henting av kunder feilet");
+    }
 
-            return await response.Content.ReadAsStringAsync();
-        }
+    var content = await response.Content.ReadAsStringAsync();
+    return ParseTripletexResponse(content);
+}
 
+public async Task<Customer> GetCustomerById(int id)
+{
+    var authHeader = await _tokenService.GetAuthorizationAsync();
+    var request = new HttpRequestMessage(HttpMethod.Get, $"https://api-test.tripletex.tech/v2/customer/{id}");
+
+    request.Headers.Add("Authorization", authHeader);
+    var response = await _httpClient.SendAsync(request);
+
+    if (!response.IsSuccessStatusCode)
+    {
+        _logger.LogError("Feil ved henting av kunde med ID {Id}", id);
+        throw new HttpRequestException("Henting av kunde feilet");
+    }
+
+    var json = await response.Content.ReadAsStringAsync();
+    var jsonDoc = JsonDocument.Parse(json);
+
+    var root = jsonDoc.RootElement;
+
+    var customer = new Customer
+    {
+        TripletexId = root.GetProperty("id").GetInt32(),
+        Name = root.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null,
+        Email = root.TryGetProperty("email", out var emailElement) ? emailElement.GetString() : null
+    };
+
+    return customer;
+}
         public async Task SyncCustomersFromTripletexAsync()
-        {
-            try
-            {
-                _logger.LogInformation("Starting customer synchronization from Tripletex");
+{
+    try
+    {
+        _logger.LogInformation("Starting customer synchronization from Tripletex");
 
-                var tripletexResponse = await GetCustomersAsync();
-                var customersFromApi = ParseTripletexResponse(tripletexResponse);
+        var customersFromApi = await GetCustomersAsync();
 
-                _logger.LogInformation("Found {Count} customers from Tripletex API", customersFromApi.Count());
+        _logger.LogInformation("Found {Count} customers from Tripletex API", customersFromApi.Count());
 
-                await _customerRepository.BulkUpsertAsync(customersFromApi);
+        await _customerRepository.BulkUpsertAsync(customersFromApi);
 
-                _logger.LogInformation("Customer synchronization completed successfully");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during customer synchronization");
-                throw;
-            }
-        }
+        _logger.LogInformation("Customer synchronization completed successfully");
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error during customer synchronization");
+        throw;
+    }
+}
+
 
         private IEnumerable<Customer> ParseTripletexResponse(string jsonResponse)
         {

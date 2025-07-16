@@ -33,12 +33,18 @@ namespace backend.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetCustomer(int id)
+        public async Task<IActionResult> GetCustomerById(int id)
         {
             try
             {
                 var customer = await _customerService.GetCustomerById(id);
-                return Ok(customer)
+                return Ok(customer);
+                
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error synchronizing customers");
+                return StatusCode(500, new { error = "Internal server error during synchronization" });
             }
         }
 
