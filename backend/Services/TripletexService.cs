@@ -48,4 +48,39 @@ public class TripleTexService
             throw;
         }
     }
+
+        public async Task<List<InvoiceDto>> GetInvoicesAsync()
+    {
+        try
+        {
+            var authHeader = await _tokenService.GetAuthorizationAsync();
+
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://api-test.tripletex.tech/v2/invoice");
+            request.Headers.Add("Authorization", authHeader);
+
+            _logger.LogInformation("Henter fakturaer fra Tripletex API...");
+
+            var response = await _httpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Feil ved henting av fakturaer: {StatusCode} - {Error}", response.StatusCode, error);
+                throw new HttpRequestException($"Henting av fakturaer feilet: {response.StatusCode}");
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<InvoiceListResponse>(json);
+
+            _logger.LogInformation("Fakturaer hentet OK, Antall Fakturaer: ({Count})", result?.Values?.Count ?? 0);
+
+            return result?.Values ?? new List<InvoiceDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Klarte ikke å hente fakturaer fra Tripletex");
+            throw;
+        }
+    }
 }
+

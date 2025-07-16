@@ -43,26 +43,26 @@ namespace backend.Repositories
         }
 
         public async Task BulkUpsertAsync(IEnumerable<Invoice> invoices)
+{
+    foreach (var invoice in invoices)
+    {
+        var existingInvoice = await _context.Invoices
+            .FirstOrDefaultAsync(invoice => invoice.TripletexId == invoice.TripletexId);
+
+        if (existingInvoice != null)
         {
-            foreach (var invoice in invoices)
-            {
-                var existingInvoice = await GetByTripletexIdAsync(invoice.TripletexId);
-                if (existingInvoice != null)
-                {
-                    existingInvoice.Status = invoice.Status;
-                    existingInvoice.Total = invoice.Total;
-                    existingInvoice.InvoiceCreated = invoice.InvoiceCreated;
-                    existingInvoice.InvoiceDueDate = invoice.InvoiceDueDate;
-                    existingInvoice.CustomerId = invoice.CustomerId;
-                    _context.Entry(existingInvoice).State = EntityState.Modified;
-                }
-                else
-                {
-                    _context.Invoices.Add(invoice);
-                }
-            }
-            
-            await _context.SaveChangesAsync();
+            existingInvoice.Status = invoice.Status;
+            existingInvoice.Total = invoice.Total;
+            existingInvoice.InvoiceCreated = invoice.InvoiceCreated;
+            existingInvoice.InvoiceDueDate = invoice.InvoiceDueDate;
+            existingInvoice.CustomerId = invoice.CustomerId;
         }
+        else
+        {
+            _context.Invoices.Add(invoice);
+        }
+    }
+    await _context.SaveChangesAsync();
+}
     }
 }

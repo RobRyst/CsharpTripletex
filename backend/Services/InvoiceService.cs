@@ -34,14 +34,14 @@ namespace backend.Services
             var invoices = await _invoiceRepository.GetAllWithCustomerAsync();
             return invoices.Select(invoice => new InvoiceDto
             {
-                Id = invoice.Id,
+                InvoiceId = invoice.Id,
                 Status = invoice.Status,
                 Total = invoice.Total,
                 InvoiceCreated = invoice.InvoiceCreated,
                 InvoiceDueDate = invoice.InvoiceDueDate,
                 CustomerId = invoice.CustomerId,
-                CustomerName = invoice.Customer?.Name,
-                CustomerEmail = invoice.Customer?.Email
+                Name = invoice.Customer?.Name,
+                Email = invoice.Customer?.Email
             });
         }
 
