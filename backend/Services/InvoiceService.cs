@@ -131,7 +131,6 @@ namespace backend.Services
                 {
                     foreach (var invoiceElement in valuesElement.EnumerateArray())
                     {
-                        // Handle customer lookup
                         if (!invoiceElement.TryGetProperty("customer", out var customerElement) ||
                             !customerElement.TryGetProperty("id", out var customerIdElement))
                         {
@@ -158,7 +157,7 @@ namespace backend.Services
                             InvoiceCreated = invoiceElement.TryGetProperty("invoiceDate", out var invoiceDateElement) ?
                                 DateOnly.FromDateTime(invoiceDateElement.GetDateTime()) : DateOnly.FromDateTime(DateTime.UtcNow),
                             InvoiceDueDate = invoiceElement.TryGetProperty("dueDate", out var dueDateElement) ?
-                                DateOnly.FromDateTime(dueDateElement.GetDateTime()) : DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30)),
+                                DateOnly.FromDateTime(dueDateElement.GetDateTime()) : DateOnly.FromDateTime(DateTime.UtcNow.AddDays(14)),
                             CustomerId = customer.Id
                         };
 
