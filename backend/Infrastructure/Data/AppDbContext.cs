@@ -12,6 +12,7 @@ namespace backend.Infrastructure.Data
 
         public DbSet<Customer> Customers { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
+        public DbSet<SaleOrder> SaleOrder { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

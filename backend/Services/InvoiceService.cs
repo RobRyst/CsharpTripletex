@@ -69,8 +69,8 @@ namespace backend.Services
         {
             try
             {
-                var fromDate = DateTime.UtcNow.AddMonths(-1).ToString("yyyy-MM-dd");
-                var toDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
+                var fromDate = DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd");
+                var toDate = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd");
 
                 var url = $"https://api-test.tripletex.tech/v2/invoice?invoiceDateFrom={fromDate}&invoiceDateTo={toDate}";
 
@@ -93,6 +93,7 @@ namespace backend.Services
                 var invoices = await ParseTripletexInvoiceResponse(content);
                 
                 _logger.LogInformation("Successfully fetched {Count} invoices from Tripletex", invoices.Count());
+                _logger.LogDebug("Tripletex Raw Invoice JSON: {Json}", content);
                 
                 return invoices.ToList();
             }
