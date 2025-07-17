@@ -42,6 +42,25 @@ namespace backend.Infrastructure.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<SaleOrder>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+                entity.Property(e => e.TripletexId).IsRequired();
+                entity.Property(e => e.OrderNumber).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.TotalAmount).IsRequired().HasColumnType("decimal(18,2)");
+                entity.Property(e => e.OrderDate).IsRequired();
+                
+                entity.HasIndex(e => e.TripletexId).IsUnique();
+
+                entity.HasOne(e => e.Customer)
+                    .WithMany()
+                    .HasForeignKey(e => e.CustomerId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+
             base.OnModelCreating(modelBuilder);
         }
     }

@@ -99,7 +99,7 @@ namespace backend.Services
         public async Task<List<SaleOrder>> GetAllWithUserAsync()
 {
     return await _context.SaleOrder
-        .Include(o => o.Customer) // Assuming SaleOrder has a navigation property `Customer`
+        .Include(o => o.Customer)
         .ToListAsync();
 }
 

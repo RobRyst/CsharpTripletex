@@ -50,7 +50,7 @@ namespace backend.Controllers
             }
         }
 
-        [HttpGet("sync")]
+        [HttpPost("sync")]
         public async Task<IActionResult> SyncSaleOrders()
         {
             try
