@@ -17,13 +17,13 @@ namespace backend.Services
             _db = db;
         }
 
-        public async Task ImportSalesOrdersAsync()
+        public async Task ImportSaleOrdersAsync()
         {
-            var salesOrdersFromTripletex = await _saleOrderService.GetSalesOrdersFromTripletexAsync();
+            var saleOrdersFromTripletex = await _saleOrderService.GetSaleOrdersFromTripletexAsync();
 
-            foreach (var dto in salesOrdersFromTripletex)
+            foreach (var dto in saleOrdersFromTripletex)
             {
-                var salesOrder = new SaleOrder
+                var saleOrder = new SaleOrder
                 {
                     TripletexId = dto.Id,
                     OrderNumber = dto.OrderNumber,
@@ -33,19 +33,19 @@ namespace backend.Services
                     CustomerId = dto.Customer?.Id ?? 0,
                 };
 
-                _db.SaleOrder.Add(salesOrder);
+                _db.SaleOrder.Add(saleOrder);
             }
 
             await _db.SaveChangesAsync();
         }
 
-        public async Task SyncSalesOrdersFromTripletexAsync()
+        public async Task SyncSaleOrdersFromTripletexAsync()
         {
-            await _saleOrderService.SyncSalesOrdersFromTripletexAsync();
+            await _saleOrderService.SyncSaleOrdersFromTripletexAsync();
         }
-        public async Task<List<SalesOrderDto>> GetSalesOrdersFromTripletexAsync()
+        public async Task<List<SaleOrderDto>> GetSaleOrdersFromTripletexAsync()
         {
-            return await _saleOrderService.GetSalesOrdersFromTripletexAsync();
+            return await _saleOrderService.GetSaleOrdersFromTripletexAsync();
         }
     }
 }

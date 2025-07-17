@@ -1,6 +1,6 @@
 namespace backend.Dtos
 {
-    public class SalesOrderDto
+    public class SaleOrderDto
     {
         public int Id { get; set; }
         public string OrderNumber { get; set; } = "";
@@ -16,8 +16,8 @@ namespace backend.Dtos
         public int Id { get; set; }
     }
 
-    public class SalesOrderListResponse
+    public class SaleOrderListResponse
     {
-        public List<SalesOrderDto> Value { get; set; } = new();
+        public List<SaleOrderDto> Value { get; set; } = new();
     }
 }

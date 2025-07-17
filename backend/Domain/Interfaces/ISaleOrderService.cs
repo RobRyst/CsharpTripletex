@@ -4,8 +4,8 @@ namespace backend.Domain.Interfaces
 {
     public interface ISaleOrderService
     {
-        Task SyncSalesOrdersFromTripletexAsync();
-        Task<List<SalesOrderDto>> GetSalesOrdersFromTripletexAsync();
-        Task ImportSalesOrdersAsync();
+        Task SyncSaleOrdersFromTripletexAsync();
+        Task<List<SaleOrderDto>> GetSaleOrdersFromTripletexAsync();
+        Task ImportSaleOrdersAsync();
     }
 }

@@ -12,7 +12,7 @@ using backend.Infrastructure.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250717195744_AddSaleOrderTable")]
+    [Migration("20250717200259_AddSaleOrderTable")]
     partial class AddSaleOrderTable
     {
         /// <inheritdoc />

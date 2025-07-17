@@ -3,6 +3,7 @@ using backend.Domain.interfaces;
 using backend.Domain.Interfaces;
 using backend.Dtos;
 using backend.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
 namespace backend.Services
@@ -22,11 +23,11 @@ namespace backend.Services
             _logger = logger;
         }
 
-        public async Task SyncSalesOrdersFromTripletexAsync()
+        public async Task SyncSaleOrdersFromTripletexAsync()
         {
             try
             {
-                var orders = await GetSalesOrdersFromTripletexAsync();
+                var orders = await GetSaleOrdersFromTripletexAsync();
 
                 foreach (var dto in orders)
                 {
@@ -66,7 +67,7 @@ namespace backend.Services
             }
         }
 
-        public async Task<List<SalesOrderDto>> GetSalesOrdersFromTripletexAsync()
+        public async Task<List<SaleOrderDto>> GetSaleOrdersFromTripletexAsync()
         {
             var authHeader = await _tokenService.GetAuthorizationAsync();
 
@@ -90,14 +91,33 @@ namespace backend.Services
             }
 
             var json = await response.Content.ReadAsStringAsync();
-            var result = JsonSerializer.Deserialize<SalesOrderListResponse>(json);
+            var result = JsonSerializer.Deserialize<SaleOrderListResponse>(json);
 
             return result?.Value ?? new();
         }
 
-        public async Task ImportSalesOrdersAsync()
+        public async Task<List<SaleOrder>> GetAllWithUserAsync()
+{
+    return await _context.SaleOrder
+        .Include(o => o.Customer) // Assuming SaleOrder has a navigation property `Customer`
+        .ToListAsync();
+}
+
+public async Task<SaleOrder?> GetSaleOrderByIdAsync(int id)
+{
+    var order = await _context.SaleOrder
+        .Include(o => o.Customer)
+        .FirstOrDefaultAsync(o => o.Id == id);
+
+    if (order == null)
+        throw new KeyNotFoundException($"Sale order with ID {id} not found.");
+
+    return order;
+}
+
+        public async Task ImportSaleOrdersAsync()
         {
-            await SyncSalesOrdersFromTripletexAsync();
+            await SyncSaleOrdersFromTripletexAsync();
         }
     }
 }

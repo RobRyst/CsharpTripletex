@@ -11,11 +11,9 @@ namespace backend.Domain.Entities
 
         public int TripletexId { get; set; }
 
-        [Required]
-        public string OrderNumber { get; set; } = string.Empty;
+        public required string OrderNumber { get; set; } = string.Empty;
 
-        [Required]
-        public string Status { get; set; } = string.Empty;
+        public required string Status { get; set; } = string.Empty;
 
         public double TotalAmount { get; set; }
 
