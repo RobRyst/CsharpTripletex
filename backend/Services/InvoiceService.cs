@@ -37,7 +37,7 @@ namespace backend.Services
     return invoices.Select(InvoiceMapper.ToModel);
 }
 
-public async Task<IEnumerable<InvoiceModel>> GetAllWithCustomerAsync()
+public async Task<IEnumerable<InvoiceModel>> GetAllInvoicesAsync()
 {
     var invoices = await _invoiceRepository.GetAllWithCustomerAsync();
     return invoices.Select(InvoiceMapper.ToModel);
@@ -128,8 +128,7 @@ public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
                 Id = invoice.CustomerTripletexId
             },
             InvoiceDate = invoice.InvoiceDate.ToString("yyyy-MM-dd"),
-            DueDate = invoice.DueDate.ToString("yyyy-MM-dd"),
-            Currency = invoice.Currency ?? "NOK",
+            Currency = new CurrencyDto { Code = invoice.Currency ?? "NOK" },
             Status = "DRAFT"
         };
 

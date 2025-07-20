@@ -2,19 +2,23 @@
 namespace backend.Dtos
 {
     public class TripletexInvoiceCreateDto
+    {
+        public TripletexCustomerRefDto? Customer { get; set; }
+        public string? InvoiceDate { get; set; }
+        public CurrencyDto Currency { get; set; } = new CurrencyDto();
+        public string? Status { get; set; }
+        public List<TripletexInvoiceLineDto>? InvoiceLines { get; set; }
+    }
+
+public class CurrencyDto
 {
-    public TripletexCustomerRefDto? Customer { get; set; }
-    public string? InvoiceDate { get; set; }
-    public string? DueDate { get; set; }
-    public string? Currency { get; set; }
-    public string? Status { get; set; }
-    public List<TripletexInvoiceLineDto>? InvoiceLines { get; set; }
+    public string Code { get; set; } = "NOK";
 }
 
-public class TripletexCustomerRefDto
-{
-    public int Id { get; set; }
-}
+    public class TripletexCustomerRefDto
+    {
+        public int Id { get; set; }
+    }
 
 public class TripletexInvoiceLineDto
 {

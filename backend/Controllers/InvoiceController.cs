@@ -23,7 +23,7 @@ namespace backend.Controllers
         {
             try
             {
-                var invoices = await _invoiceService.GetAllWithCustomerAsync();
+                var invoices = await _invoiceService.GetAllInvoicesAsync();
                 return Ok(invoices);
             }
             catch (Exception ex)
