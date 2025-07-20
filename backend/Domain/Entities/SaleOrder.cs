@@ -22,6 +22,6 @@ namespace backend.Domain.Entities
         [ForeignKey("Customer")]
         public int? CustomerId { get; set; }
 
-        public Customer? Customer { get; set; }
+        public CustomerModel? Customer { get; set; }
     }
 }

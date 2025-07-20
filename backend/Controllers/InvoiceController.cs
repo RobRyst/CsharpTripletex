@@ -1,5 +1,7 @@
 using backend.Domain.Interfaces;
+using backend.Domain.Models;
 using Microsoft.AspNetCore.Mvc;
+using backend.Domain.Entities;
 
 namespace backend.Controllers
 {
@@ -21,7 +23,7 @@ namespace backend.Controllers
         {
             try
             {
-                var invoices = await _invoiceService.GetAllWithUserAsync();
+                var invoices = await _invoiceService.GetAllWithCustomerAsync();
                 return Ok(invoices);
             }
             catch (Exception ex)
@@ -49,6 +51,22 @@ namespace backend.Controllers
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateInvoice([FromBody] InvoiceModel invoice)
+        {
+            try
+            {
+                var tripletexId = await _invoiceService.CreateInvoiceInTripletexAsync(invoice);
+                return Ok(new { message = "Invoice created in Tripletex", tripletexId });
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "Error posting invoices from database");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
 
         [HttpPost("sync")]
         public async Task<IActionResult> SyncInvoices()

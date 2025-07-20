@@ -1,9 +1,11 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using backend.Domain.Entities;
 using backend.Domain.interfaces;
 using backend.Domain.Models;
 using backend.Dtos;
+using backend.Mappers;
 
 namespace backend.Services
 {
@@ -32,7 +34,7 @@ namespace backend.Services
         }
 
 
-        public async Task<IEnumerable<Customer>> GetCustomersAsync()
+        public async Task<IEnumerable<CustomerModel>> GetCustomersAsync()
         {
             var authHeader = await _tokenService.GetAuthorizationAsync();
 
@@ -52,7 +54,7 @@ namespace backend.Services
             return ParseTripletexResponse(content);
         }
 
-        public async Task<Customer> GetCustomerById(int id)
+        public async Task<CustomerModel> GetCustomerById(int id)
         {
             var authHeader = await _tokenService.GetAuthorizationAsync();
             var request = new HttpRequestMessage(HttpMethod.Get, $"https://api-test.tripletex.tech/v2/customer/{id}");
@@ -71,7 +73,7 @@ namespace backend.Services
 
             var root = jsonDoc.RootElement;
 
-            var customer = new Customer
+            var customer = new CustomerModel
             {
                 TripletexId = root.GetProperty("id").GetInt32(),
                 Name = root.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null,
@@ -81,30 +83,30 @@ namespace backend.Services
             return customer;
         }
         public async Task SyncCustomersFromTripletexAsync()
+{
+    try
+    {
+        _logger.LogInformation("Starting customer synchronization from Tripletex");
+
+        var customersFromApi = await GetCustomersAsync();
+
+        _logger.LogInformation("Found {Count} customers from Tripletex API", customersFromApi.Count());
+
+        var customerEntities = customersFromApi.Select(CustomerMapper.ToEntity).ToList();
+        await _customerRepository.BulkUpsertAsync(customerEntities);
+
+        _logger.LogInformation("Customer synchronization completed successfully");
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error during customer synchronization");
+        throw;
+    }
+}
+
+        private IEnumerable<CustomerModel> ParseTripletexResponse(string jsonResponse)
         {
-            try
-            {
-                _logger.LogInformation("Starting customer synchronization from Tripletex");
-
-                var customersFromApi = await GetCustomersAsync();
-
-                _logger.LogInformation("Found {Count} customers from Tripletex API", customersFromApi.Count());
-
-                await _customerRepository.BulkUpsertAsync(customersFromApi);
-
-                _logger.LogInformation("Customer synchronization completed successfully");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during customer synchronization");
-                throw;
-            }
-        }
-
-
-        private IEnumerable<Customer> ParseTripletexResponse(string jsonResponse)
-        {
-            var customers = new List<Customer>();
+            var customers = new List<CustomerModel>();
 
             try
             {
@@ -113,7 +115,7 @@ namespace backend.Services
                 {
                     foreach (var customerElement in valuesElement.EnumerateArray())
                     {
-                        var customer = new Customer
+                        var customer = new CustomerModel
                         {
                             TripletexId = customerElement.GetProperty("id").GetInt32(),
                             Name = customerElement.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null,
@@ -133,7 +135,7 @@ namespace backend.Services
             return customers;
         }
         
-        public async Task<int> CreateCustomerInTripletexAsync(Customer localCustomer)
+        public async Task<int> CreateCustomerInTripletexAsync(CustomerModel localCustomer)
 {
     try
     {

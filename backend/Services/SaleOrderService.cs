@@ -1,6 +1,7 @@
 using backend.Domain.Entities;
 using backend.Domain.interfaces;
 using backend.Domain.Interfaces;
+using backend.Domain.Models;
 using backend.Dtos;
 using backend.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -33,7 +34,7 @@ namespace backend.Services
 
                 foreach (var dto in orders)
                 {
-                    var existing = await _context.SaleOrder.FirstOrDefaultAsync(o => o.TripletexId == dto.Id);
+                    var existing = await _context.Saleorders.FirstOrDefaultAsync(o => o.TripletexId == dto.Id);
 
                     if (existing == null)
                     {
@@ -48,7 +49,7 @@ namespace backend.Services
                             CustomerId = dto.Customer?.Id ?? 0
                         };
 
-                        _context.SaleOrder.Add(order);
+                        _context.Saleorders.Add(order);
                         _logger.LogInformation("Added new order: {OrderNumber}", dto.OrderNumber);
                     }
                     else
@@ -178,14 +179,14 @@ namespace backend.Services
 
         public async Task<List<SaleOrder>> GetAllWithUserAsync()
         {
-            return await _context.SaleOrder
+            return await _context.Saleorders
                 .Include(o => o.Customer)
                 .ToListAsync();
         }
 
         public async Task<SaleOrder?> GetSaleOrderByIdAsync(int id)
         {
-            var order = await _context.SaleOrder
+            var order = await _context.Saleorders
                 .Include(saleOrder => saleOrder.Customer)
                 .FirstOrDefaultAsync(saleOrder => saleOrder.Id == id);
 
@@ -201,7 +202,6 @@ namespace backend.Services
         }
     }
 
-    // Alternative response structure in case Tripletex uses 'values' instead of 'value'
     public class SaleOrderListResponseAlternative
     {
         public List<SaleOrderDto> Values { get; set; } = new();

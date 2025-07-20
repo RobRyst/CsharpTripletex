@@ -1,6 +1,7 @@
 using backend.Infrastructure.Data;
 using backend.Domain.interfaces;
 using backend.Domain.Models;
+using backend.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Repository
@@ -17,39 +18,39 @@ namespace backend.Repository
         }
 
         public async Task<IEnumerable<Customer>> GetAllAsync()
-        {
-            return await _context.Customers.ToListAsync();
-        }
+{
+    return await _context.Customers.ToListAsync();
+}
 
-        public async Task<Customer?> GetByIdAsync(int id)
-        {
-            return await _context.Customers.FindAsync(id);
-        }
+public async Task<Customer?> GetByIdAsync(int id)
+{
+    return await _context.Customers.FindAsync(id);
+}
 
-        public async Task<Customer?> GetByTripletexIdAsync(int tripletexId)
-        {
-            return await _context.Customers
-                .FirstOrDefaultAsync(customer => customer.TripletexId == tripletexId);
-        }
+public async Task<Customer?> GetByTripletexIdAsync(int tripletexId)
+{
+    return await _context.Customers.FirstOrDefaultAsync(c => c.TripletexId == tripletexId);
+}
 
-        public async Task BulkUpsertAsync(IEnumerable<Customer> customers)
+public async Task BulkUpsertAsync(IEnumerable<Customer> customers)
+{
+    foreach (var customer in customers)
+    {
+        var existing = await GetByTripletexIdAsync(customer.TripletexId);
+        if (existing != null)
         {
-            foreach (var customer in customers)
-            {
-                var existingCustomer = await GetByTripletexIdAsync(customer.TripletexId);
-                if (existingCustomer != null)
-                {
-                    existingCustomer.Name = customer.Name;
-                    existingCustomer.Email = customer.Email;
-                    _context.Entry(existingCustomer).State = EntityState.Modified;
-                }
-                else
-                {
-                    _context.Customers.Add(customer);
-                }
-            }
-            
-            await _context.SaveChangesAsync();
+            existing.Name = customer.Name;
+            existing.Email = customer.Email;
+            _context.Entry(existing).State = EntityState.Modified;
         }
+        else
+        {
+            _context.Customers.Add(customer);
+        }
+    }
+
+    await _context.SaveChangesAsync();
+}
+
     }
 }

@@ -2,6 +2,7 @@ using backend.Infrastructure.Data;
 using backend.Domain.interfaces;
 using backend.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using backend.Domain.Models;
 
 namespace backend.Repository
 {
@@ -18,7 +19,7 @@ namespace backend.Repository
 
         public async Task<IEnumerable<Invoice>> GetAllAsync()
         {
-            return await _context.Invoices.ToListAsync();
+            return await _context.Invoices.Include(i => i.Customer).ToListAsync();
         }
 
         public async Task<IEnumerable<Invoice>> GetAllWithCustomerAsync()
@@ -43,25 +44,27 @@ namespace backend.Repository
         }
 
         public async Task BulkUpsertAsync(IEnumerable<Invoice> invoices)
-    {
-        foreach (var invoice in invoices)
         {
-            var existingInvoice = await _context.Invoices
-                .FirstOrDefaultAsync(dbInvoice => dbInvoice.TripletexId == invoice.TripletexId);
+            foreach (var invoice in invoices)
+            {
+                var existingInvoice = await _context.Invoices
+                    .FirstOrDefaultAsync(dbInvoice => dbInvoice.TripletexId == invoice.TripletexId);
 
-            if (existingInvoice != null)
-            {
-                existingInvoice.Status = invoice.Status;
-                existingInvoice.Total = invoice.Total;
-                existingInvoice.InvoiceCreated = invoice.InvoiceCreated;
-                existingInvoice.InvoiceDueDate = invoice.InvoiceDueDate;
-                existingInvoice.CustomerId = invoice.CustomerId;
+                if (existingInvoice != null)
+                {
+                    existingInvoice.Status = invoice.Status;
+                    existingInvoice.Total = invoice.Total;
+                    existingInvoice.InvoiceCreated = invoice.InvoiceCreated;
+                    existingInvoice.InvoiceDueDate = invoice.InvoiceDueDate;
+                    existingInvoice.CustomerId = invoice.CustomerId;
+                    _context.Invoices.Update(existingInvoice);
+                }
+                else
+                {
+                    await _context.Invoices.AddAsync(invoice);
+                }
             }
-            else
-            {
-                _context.Invoices.Add(invoice);
-            }
-        }
+
             await _context.SaveChangesAsync();
         }
     }

@@ -1,5 +1,6 @@
 using backend.Domain.Entities;
 using backend.Domain.Interfaces;
+using backend.Domain.Models;
 using backend.Dtos;
 using backend.Infrastructure.Data;
 using backend.Services;
@@ -33,7 +34,7 @@ namespace backend.Services
                     CustomerId = dto.Customer?.Id ?? 0,
                 };
 
-                _db.SaleOrder.Add(saleOrder);
+                _db.Saleorders.Add(saleOrder);
             }
 
             await _db.SaveChangesAsync();

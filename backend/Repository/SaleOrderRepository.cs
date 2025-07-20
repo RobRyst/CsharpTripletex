@@ -1,5 +1,6 @@
 using backend.Domain.Entities;
 using backend.Domain.interfaces;
+using backend.Domain.Models;
 using backend.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,12 +19,12 @@ namespace backend.Repository
 
         public async Task<IEnumerable<SaleOrder>> GetAllAsync()
         {
-            return await _context.SaleOrder.Include(so => so.Customer).ToListAsync();
+            return await _context.Saleorders.Include(so => so.Customer).ToListAsync();
         }
 
         public async Task<SaleOrder?> GetByTripletexIdAsync(int tripletexId)
         {
-            return await _context.SaleOrder
+            return await _context.Saleorders
                 .Include(so => so.Customer)
                 .FirstOrDefaultAsync(so => so.TripletexId == tripletexId);
         }
@@ -44,7 +45,7 @@ namespace backend.Repository
                 }
                 else
                 {
-                    _context.SaleOrder.Add(saleOrder);
+                    _context.Saleorders.Add(saleOrder);
                 }
             }
 

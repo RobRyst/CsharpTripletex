@@ -64,7 +64,7 @@ namespace backend.Controllers
         }
         
         [HttpPost]
-public async Task<IActionResult> CreateCustomer([FromBody] Customer customer)
+public async Task<IActionResult> CreateCustomer([FromBody] CustomerModel customer)
 {
     try
     {

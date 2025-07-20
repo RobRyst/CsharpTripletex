@@ -1,36 +1,34 @@
 using backend.Domain.Models;
+using backend.Domain.Entities;
 using backend.Infrastructure.Data;
+using backend.Mappers;
 
 namespace backend.Services
 {
     public class CustomerImportService
-{
-    private readonly TripleTexService _client;
-    private readonly AppDbContext _db;
-
-    public CustomerImportService(TripleTexService client, AppDbContext db)
     {
-        _client = client;
-        _db = db;
-    }
+        private readonly TripleTexService _client;
+        private readonly AppDbContext _db;
 
-    public async Task ImportCustomersAsync()
-    {
-        var customersFromTripletexApi = await _client.GetCustomersAsync();
-
-        foreach (var dto in customersFromTripletexApi)
+        public CustomerImportService(TripleTexService client, AppDbContext db)
         {
-            var customer = new Customer
-            {
-                Name = dto.Name,
-                Email = dto.Email
-            };
-
-            _db.Customers.Add(customer);
+            _client = client;
+            _db = db;
         }
 
-        await _db.SaveChangesAsync();
+        public async Task ImportCustomersAsync()
+        {
+            var customerDtos = await _client.GetCustomersAsync();
+
+            foreach (var dto in customerDtos)
+            {
+                var model = CustomerDtoMapper.ToModel(dto);
+                var entity = CustomerMapper.ToEntity(model);
+                _db.Customers.Add(entity);
+            }
+
+            await _db.SaveChangesAsync();
+        }
     }
-}
 }
 

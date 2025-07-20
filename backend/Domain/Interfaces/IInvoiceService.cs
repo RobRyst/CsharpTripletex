@@ -1,15 +1,15 @@
-using backend.Domain.Entities;
-using backend.Dtos;
+// IInvoiceService.cs
+using backend.Domain.Models;
 
 namespace backend.Domain.Interfaces
 {
     public interface IInvoiceService
     {
-        Task<IEnumerable<InvoiceDto>> GetAllWithUserAsync();
-        Task<IEnumerable<Invoice>> GetAllAsync();
-        Task<Invoice> GetInvoiceByIdAsync(int id);
-        Task<string> GetAuthorizationAsync();
-        Task<List<Invoice>> GetInvoicesFromTripletexAsync();
+        Task<IEnumerable<InvoiceModel>> GetAllAsync();
+        Task<IEnumerable<InvoiceModel>> GetAllWithCustomerAsync();
+        Task<InvoiceModel> GetInvoiceByIdAsync(int id);
+        Task<List<InvoiceModel>> GetInvoicesFromTripletexAsync();
         Task SyncInvoicesFromTripletexAsync();
+        Task<int> CreateInvoiceInTripletexAsync(InvoiceModel invoice);
     }
 }

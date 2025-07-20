@@ -1,6 +1,7 @@
 using backend.Domain.Models;
 using backend.Dtos;
 using backend.Infrastructure.Data;
+using backend.Domain.Entities;
 
 namespace backend.Services
 {

@@ -1,6 +1,6 @@
 namespace backend.Domain.Models
 {
-    public class Customer
+    public class CustomerModel
     {
         public int Id { get; set; }
         public int TripletexId { get; set; }

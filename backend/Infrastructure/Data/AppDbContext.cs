@@ -12,11 +12,11 @@ namespace backend.Infrastructure.Data
 
         public DbSet<Customer> Customers { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
-        public DbSet<SaleOrder> SaleOrder { get; set; }
+        public DbSet<SaleOrder> Saleorders { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Customer>(entity =>
+            modelBuilder.Entity<CustomerModel>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedOnAdd();
@@ -26,18 +26,24 @@ namespace backend.Infrastructure.Data
                 entity.HasIndex(e => e.TripletexId).IsUnique();
             });
 
-            modelBuilder.Entity<Invoice>(entity =>
+modelBuilder.Entity<Invoice>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedOnAdd();
                 entity.Property(e => e.TripletexId).IsRequired();
                 entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
-                entity.Property(e => e.Total).IsRequired();
+                entity.Property(e => e.Total).IsRequired().HasColumnType("decimal(18,2)");
                 entity.Property(e => e.InvoiceCreated).IsRequired();
                 entity.Property(e => e.InvoiceDueDate).IsRequired();
+                entity.Property(e => e.InvoiceDate).IsRequired();
+                entity.Property(e => e.DueDate).IsRequired();
+                entity.Property(e => e.Currency).HasMaxLength(10);
+                entity.Property(e => e.CustomerTripletexId).IsRequired();
+                
                 entity.HasIndex(e => e.TripletexId).IsUnique();
+                
                 entity.HasOne(e => e.Customer)
-                    .WithMany()
+                    .WithMany(u => u.Invoices)
                     .HasForeignKey(e => e.CustomerId)
                     .OnDelete(DeleteBehavior.Cascade);
             });

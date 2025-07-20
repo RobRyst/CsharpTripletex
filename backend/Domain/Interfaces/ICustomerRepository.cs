@@ -1,4 +1,4 @@
-using backend.Domain.Models;
+using backend.Domain.Entities;
 
 namespace backend.Domain.interfaces
 {

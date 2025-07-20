@@ -1,6 +1,7 @@
 using System.Text.Json;
 using backend.Domain.interfaces;
 using backend.Dtos;
+using static backend.Dtos.CustomerDto;
 
 namespace backend.Services
 {
