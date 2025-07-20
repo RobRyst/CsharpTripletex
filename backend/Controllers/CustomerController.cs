@@ -39,7 +39,7 @@ namespace backend.Controllers
             {
                 var customer = await _customerService.GetCustomerById(id);
                 return Ok(customer);
-                
+
             }
             catch (Exception ex)
             {
@@ -62,5 +62,21 @@ namespace backend.Controllers
                 return StatusCode(500, new { error = "Internal server error during synchronization" });
             }
         }
+        
+        [HttpPost]
+public async Task<IActionResult> CreateCustomer([FromBody] Customer customer)
+{
+    try
+    {
+        var tripletexId = await _customerService.CreateCustomerInTripletexAsync(customer);
+        return Ok(new { message = "Customer created in Tripletex", tripletexId });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error creating customer in Tripletex");
+        return StatusCode(500, new { error = "Internal server error while creating customer" });
+    }
+}
+
     }
 }

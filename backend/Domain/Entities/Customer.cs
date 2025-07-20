@@ -13,7 +13,25 @@ namespace backend.Domain.Entities
         public required string Name { get; set; } = string.Empty;
 
         [MaxLength(100)]
-        public required string Address { get; set; }
+        public required string PostalAddress { get; set; }
+
+        [MaxLength(100)]
+        public required string OrganizationNumber { get; set; }
+
+        [MaxLength(100)]
+        public required string PhoneNumber { get; set; }
+
+        [MaxLength(20)]
+        public required string PostalCode { get; set; }
+
+        [MaxLength(100)]
+        public required string AddressLine1 { get; set; }
+
+        [MaxLength(100)]
+        public required string City { get; set; }
+
+        [MaxLength(100)]
+        public required string Country { get; set; }
 
         [MaxLength(100)]
         [EmailAddress]

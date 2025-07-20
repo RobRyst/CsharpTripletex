@@ -1,101 +1,105 @@
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using backend.Domain.interfaces;
 using backend.Domain.Models;
+using backend.Dtos;
 
 namespace backend.Services
 {
-    public class CustomerService : ICustomerService {
+    public class CustomerService : ICustomerService
+    {
         private readonly HttpClient _httpClient;
         private readonly ITokenService _tokenService;
         private readonly ICustomerRepository _customerRepository;
         private readonly ILogger<CustomerService> _logger;
-    
-    public CustomerService(
-            HttpClient httpClient,
-            ITokenService tokenService,
-            ICustomerRepository customerRepository,
-            ILogger<CustomerService> logger)
+
+        public CustomerService(
+                HttpClient httpClient,
+                ITokenService tokenService,
+                ICustomerRepository customerRepository,
+                ILogger<CustomerService> logger)
         {
             _httpClient = httpClient;
             _tokenService = tokenService;
             _customerRepository = customerRepository;
             _logger = logger;
         }
-    
+
         public async Task<IEnumerable<Customer>> GetCustomersFromDatabaseAsync()
         {
             return await _customerRepository.GetAllAsync();
         }
 
 
-public async Task<IEnumerable<Customer>> GetCustomersAsync()
-{
-    var authHeader = await _tokenService.GetAuthorizationAsync();
+        public async Task<IEnumerable<Customer>> GetCustomersAsync()
+        {
+            var authHeader = await _tokenService.GetAuthorizationAsync();
 
-    var request = new HttpRequestMessage(HttpMethod.Get, "https://api-test.tripletex.tech/v2/customer");
-    request.Headers.Add("Authorization", authHeader);
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://api-test.tripletex.tech/v2/customer");
+            request.Headers.Add("Authorization", authHeader);
 
-    var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.SendAsync(request);
 
-    if (!response.IsSuccessStatusCode)
-    {
-        var error = await response.Content.ReadAsStringAsync();
-        _logger.LogError("Feil ved henting av kunder: {Status} - {Error}", response.StatusCode, error);
-        throw new HttpRequestException("Henting av kunder feilet");
-    }
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Feil ved henting av kunder: {Status} - {Error}", response.StatusCode, error);
+                throw new HttpRequestException("Henting av kunder feilet");
+            }
 
-    var content = await response.Content.ReadAsStringAsync();
-    return ParseTripletexResponse(content);
-}
+            var content = await response.Content.ReadAsStringAsync();
+            return ParseTripletexResponse(content);
+        }
 
-public async Task<Customer> GetCustomerById(int id)
-{
-    var authHeader = await _tokenService.GetAuthorizationAsync();
-    var request = new HttpRequestMessage(HttpMethod.Get, $"https://api-test.tripletex.tech/v2/customer/{id}");
+        public async Task<Customer> GetCustomerById(int id)
+        {
+            var authHeader = await _tokenService.GetAuthorizationAsync();
+            var request = new HttpRequestMessage(HttpMethod.Get, $"https://api-test.tripletex.tech/v2/customer/{id}");
 
-    request.Headers.Add("Authorization", authHeader);
-    var response = await _httpClient.SendAsync(request);
+            request.Headers.Add("Authorization", authHeader);
+            var response = await _httpClient.SendAsync(request);
 
-    if (!response.IsSuccessStatusCode)
-    {
-        _logger.LogError("Feil ved henting av kunde med ID {Id}", id);
-        throw new HttpRequestException("Henting av kunde feilet");
-    }
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Feil ved henting av kunde med ID {Id}", id);
+                throw new HttpRequestException("Henting av kunde feilet");
+            }
 
-    var json = await response.Content.ReadAsStringAsync();
-    var jsonDoc = JsonDocument.Parse(json);
+            var json = await response.Content.ReadAsStringAsync();
+            var jsonDoc = JsonDocument.Parse(json);
 
-    var root = jsonDoc.RootElement;
+            var root = jsonDoc.RootElement;
 
-    var customer = new Customer
-    {
-        TripletexId = root.GetProperty("id").GetInt32(),
-        Name = root.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null,
-        Email = root.TryGetProperty("email", out var emailElement) ? emailElement.GetString() : null
-    };
+            var customer = new Customer
+            {
+                TripletexId = root.GetProperty("id").GetInt32(),
+                Name = root.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null,
+                Email = root.TryGetProperty("email", out var emailElement) ? emailElement.GetString() : null
+            };
 
-    return customer;
-}
+            return customer;
+        }
         public async Task SyncCustomersFromTripletexAsync()
-{
-    try
-    {
-        _logger.LogInformation("Starting customer synchronization from Tripletex");
+        {
+            try
+            {
+                _logger.LogInformation("Starting customer synchronization from Tripletex");
 
-        var customersFromApi = await GetCustomersAsync();
+                var customersFromApi = await GetCustomersAsync();
 
-        _logger.LogInformation("Found {Count} customers from Tripletex API", customersFromApi.Count());
+                _logger.LogInformation("Found {Count} customers from Tripletex API", customersFromApi.Count());
 
-        await _customerRepository.BulkUpsertAsync(customersFromApi);
+                await _customerRepository.BulkUpsertAsync(customersFromApi);
 
-        _logger.LogInformation("Customer synchronization completed successfully");
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error during customer synchronization");
-        throw;
-    }
-}
+                _logger.LogInformation("Customer synchronization completed successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during customer synchronization");
+                throw;
+            }
+        }
 
 
         private IEnumerable<Customer> ParseTripletexResponse(string jsonResponse)
@@ -128,5 +132,62 @@ public async Task<Customer> GetCustomerById(int id)
 
             return customers;
         }
+        
+        public async Task<int> CreateCustomerInTripletexAsync(Customer localCustomer)
+{
+    try
+    {
+var tripletexDto = new TripletexCustomerCreateDto
+{
+    Name = localCustomer.Name!,
+    Email = localCustomer.Email,
+    OrganizationNumber = localCustomer.OrganizationNumber,
+    PhoneNumber = localCustomer.PhoneNumber,
+    IsCustomer = true,
+        PostalAddress = new TripletexAddressDto
+    {
+        AddressLine1 = localCustomer.AddressLine1,
+        PostalCode = localCustomer.PostalCode,
+        City = localCustomer.City,
+        Country = new TripletexCountryDto { Id = 160 }
+    }
+
+};
+
+        var url = "https://api-test.tripletex.tech/v2/customer";
+        var token = await _tokenService.GetAuthorizationAsync();
+
+        var request = new HttpRequestMessage(HttpMethod.Post, url);
+        request.Headers.Add("Authorization", token);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        var json = JsonSerializer.Serialize(tripletexDto, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.SendAsync(request);
+
+        var content = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("Failed to create customer in Tripletex: {StatusCode} - {Content}", response.StatusCode, content);
+            throw new HttpRequestException($"Tripletex error: {response.StatusCode}");
+        }
+        
+
+        var doc = JsonDocument.Parse(content);
+        var id = doc.RootElement.GetProperty("value").GetProperty("id").GetInt32();
+
+        _logger.LogInformation("Created customer in Tripletex with ID {TripletexId}", id);
+
+        return id;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error creating customer in Tripletex");
+        throw;
+    }
+}
+
     }
 }

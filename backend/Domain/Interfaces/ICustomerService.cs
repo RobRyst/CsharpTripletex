@@ -7,5 +7,6 @@ namespace backend.Domain.interfaces
         Task<IEnumerable<Customer>> GetCustomersAsync();
         Task SyncCustomersFromTripletexAsync();
         Task<Customer> GetCustomerById(int id);
+        Task<int> CreateCustomerInTripletexAsync(Customer localCustomer);
     }
 }

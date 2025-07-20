@@ -33,7 +33,7 @@ namespace backend.Services
 
                 foreach (var dto in orders)
                 {
-                    var existing = _context.SaleOrder.FirstOrDefault(o => o.TripletexId == dto.Id);
+                    var existing = await _context.SaleOrder.FirstOrDefaultAsync(o => o.TripletexId == dto.Id);
 
                     if (existing == null)
                     {
@@ -61,8 +61,9 @@ namespace backend.Services
                     }
                 }
 
+                _logger.LogInformation("Saving changes to database...");
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("Synced {Count} sales orders successfully", orders.Count);
+                _logger.LogInformation("Save successful.");
             }
             catch (Exception ex)
             {
@@ -74,23 +75,40 @@ namespace backend.Services
         public async Task<List<SaleOrderDto>> GetSaleOrdersFromTripletexAsync()
         {
             var authHeader = await _tokenService.GetAuthorizationAsync();
+            _logger.LogInformation("Authorization header obtained: {AuthHeader}", 
+                authHeader != null ? authHeader.Substring(0, Math.Min(20, authHeader.Length)) + "..." : "NULL");
 
-            var fromDate = DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd");
-            var toDate = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd");
+            // Expand date range for testing - try last 365 days
+            var fromDate = DateTime.UtcNow.AddDays(-365).ToString("yyyy-MM-dd");
+            var toDate = DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd"); // Also check future orders
 
+            // Enhanced URL with more fields and debugging parameters
+            var url = $"https://api-test.tripletex.tech/v2/order?orderDateFrom={fromDate}&orderDateTo={toDate}&fields=id,number,orderDate,deliveryDate,invoicesDueDate,customer(id,name,email),currency(id,code),department(id,name),project(id,name),invoiceReference,ourReference,yourReference,deliveryAddress,invoiceAddress,comment,attention,terms,lines,discount,vatType,deliveryComment,invoiceComment&count=2000&from=0";
 
-            var url = $"https://api-test.tripletex.tech/v2/order?orderDateFrom={fromDate}&orderDateTo={toDate}&fields=*,customer(id,name)&count=1000";
+            _logger.LogInformation("API Request URL: {Url}", url);
+            _logger.LogInformation("Date range: {FromDate} to {ToDate}", fromDate, toDate);
 
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", authHeader);
+            
+            // Add additional headers that might be required
+            request.Headers.Add("Accept", "application/json");
+            request.Headers.Add("User-Agent", "YourApp/1.0");
 
-            _logger.LogInformation("Fetching sales orders from Tripletex with URL: {Url}", url);
+            _logger.LogInformation("Fetching sales orders from Tripletex...");
 
             var response = await _httpClient.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
 
             _logger.LogInformation("Tripletex API Response Status: {StatusCode}", response.StatusCode);
-            _logger.LogInformation("Tripletex API Response Content: {Content}", responseContent);
+            _logger.LogInformation("Response Headers: {Headers}", string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}")));
+            _logger.LogInformation("Response Content Length: {Length}", responseContent?.Length ?? 0);
+            
+            // Log first 1000 characters of response for debugging
+            var truncatedContent = responseContent?.Length > 1000 
+                ? responseContent.Substring(0, 1000) + "..." 
+                : responseContent;
+            _logger.LogInformation("Tripletex API Response Content (truncated): {Content}", truncatedContent);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -100,13 +118,56 @@ namespace backend.Services
 
             try
             {
-                var result = JsonSerializer.Deserialize<SaleOrderListResponse>(responseContent, new JsonSerializerOptions
+                // First, let's try to deserialize as a generic object to see the structure
+                var jsonDocument = JsonDocument.Parse(responseContent);
+                _logger.LogInformation("JSON Root Properties: {Properties}", 
+                    string.Join(", ", jsonDocument.RootElement.EnumerateObject().Select(p => p.Name)));
+
+                // Check if the response has a different structure than expected
+                if (jsonDocument.RootElement.TryGetProperty("values", out var valuesElement))
                 {
-                    PropertyNameCaseInsensitive = true
-                });
+                    _logger.LogInformation("Found 'values' array with {Count} items", valuesElement.GetArrayLength());
+                }
+                else if (jsonDocument.RootElement.TryGetProperty("value", out var valueElement))
+                {
+                    _logger.LogInformation("Found 'value' array with {Count} items", valueElement.GetArrayLength());
+                }
+                else
+                {
+                    _logger.LogWarning("Neither 'values' nor 'value' property found in response");
+                }
+
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
+
+                // Try both possible response structures
+                SaleOrderListResponse result = null;
+                
+                try
+                {
+                    result = JsonSerializer.Deserialize<SaleOrderListResponse>(responseContent, options);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to deserialize with 'Value' property, trying 'Values'");
+                    
+                    // Try with alternative response structure
+                    var alternativeResponse = JsonSerializer.Deserialize<SaleOrderListResponseAlternative>(responseContent, options);
+                    result = new SaleOrderListResponse { Value = alternativeResponse?.Values ?? new List<SaleOrderDto>() };
+                }
 
                 _logger.LogInformation("Deserialized {Count} orders from response", result?.Value?.Count ?? 0);
                 
+                if (result?.Value?.Any() == true)
+                {
+                    var firstOrder = result.Value.First();
+                    _logger.LogInformation("First order sample: Id={Id}, Number={Number}, Date={Date}, Status={Status}", 
+                        firstOrder.Id, firstOrder.OrderNumber, firstOrder.OrderDate, firstOrder.Status);
+                }
+
                 return result?.Value ?? new List<SaleOrderDto>();
             }
             catch (JsonException ex)
@@ -139,5 +200,11 @@ namespace backend.Services
         {
             await SyncSaleOrdersFromTripletexAsync();
         }
+    }
+
+    // Alternative response structure in case Tripletex uses 'values' instead of 'value'
+    public class SaleOrderListResponseAlternative
+    {
+        public List<SaleOrderDto> Values { get; set; } = new();
     }
 }
