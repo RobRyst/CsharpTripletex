@@ -2,9 +2,8 @@ using backend.Domain.interfaces;
 using Microsoft.EntityFrameworkCore;
 using backend.Services;
 using backend.Infrastructure.Data;
-using backend.Respository;
 using backend.Domain.Interfaces;
-using backend.Repositories;
+using backend.Repository;
 
 
 var builder = WebApplication.CreateBuilder(args);

@@ -1,7 +1,9 @@
 using backend.Domain.Models;
 using backend.Infrastructure.Data;
 
-public class CustomerImportService
+namespace backend.Services
+{
+    public class CustomerImportService
 {
     private readonly TripleTexService _client;
     private readonly AppDbContext _db;
@@ -30,3 +32,5 @@ public class CustomerImportService
         await _db.SaveChangesAsync();
     }
 }
+}
+

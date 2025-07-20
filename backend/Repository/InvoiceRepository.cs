@@ -3,7 +3,7 @@ using backend.Domain.interfaces;
 using backend.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace backend.Repositories
+namespace backend.Repository
 {
     public class InvoiceRepository : IInvoiceRepository
     {

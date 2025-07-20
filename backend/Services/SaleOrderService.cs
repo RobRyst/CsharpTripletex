@@ -104,7 +104,6 @@ namespace backend.Services
             _logger.LogInformation("Response Headers: {Headers}", string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}")));
             _logger.LogInformation("Response Content Length: {Length}", responseContent?.Length ?? 0);
             
-            // Log first 1000 characters of response for debugging
             var truncatedContent = responseContent?.Length > 1000 
                 ? responseContent.Substring(0, 1000) + "..." 
                 : responseContent;

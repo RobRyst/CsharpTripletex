@@ -9,7 +9,6 @@ namespace backend.Domain.Models
         public string? OrganizationNumber { get; set; }
         public string? PhoneNumber { get; set; }
         public string? PostalAddress { get; set; }
-        public string? PhysicalAddress { get; set; }
         public string? AddressLine1 { get; internal set; }
         public string? PostalCode { get; set; }
         public string? City { get; set; }

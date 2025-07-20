@@ -3,7 +3,7 @@ using backend.Domain.interfaces;
 using backend.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace backend.Respository
+namespace backend.Repository
 {
     public class CustomerRepository : ICustomerRepository
     {
