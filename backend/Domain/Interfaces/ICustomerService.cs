@@ -1,3 +1,4 @@
+using backend.Domain.Entities;
 using backend.Domain.Models;
 
 namespace backend.Domain.interfaces
@@ -8,5 +9,6 @@ namespace backend.Domain.interfaces
         Task SyncCustomersFromTripletexAsync();
         Task<CustomerModel?> GetCustomerById(int id);
         Task<int> CreateCustomerInTripletexAsync(CustomerModel? customer);
+        Task<IEnumerable<Customer>> GetCustomersFromDatabaseAsync();
     }
 }

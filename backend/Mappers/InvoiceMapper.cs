@@ -1,5 +1,6 @@
 using backend.Domain.Entities;
 using backend.Domain.Models;
+using backend.Dtos;
 
 namespace backend.Mappers
 {
@@ -32,5 +33,22 @@ namespace backend.Mappers
                 ? CustomerMapper.ToModel(entity.Customer)
                 : null
         };
+        public static InvoiceModel FromTripletexDto(TripletexInvoiceCreateDto dto, int localCustomerId)
+        {
+            var parseSuccess1 = DateOnly.TryParse(dto.InvoiceDate, out var createdDate);
+            var parseSuccess2 = DateOnly.TryParse(dto.InvoiceDueDate, out var dueDate);
+
+            if (!parseSuccess1 || !parseSuccess2)
+                throw new FormatException("Invalid date format for invoice");
+
+            return new InvoiceModel
+            {
+                CustomerId = localCustomerId,
+                Currency = dto.Currency?.Code ?? "NOK",
+                InvoiceCreated = createdDate,
+                InvoiceDueDate = dueDate,
+                Total = dto.InvoiceLines?.FirstOrDefault()?.UnitPrice ?? 0
+            };
+        }
     }
 }

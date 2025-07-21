@@ -9,6 +9,7 @@ namespace backend.Dtos
         public decimal Amount { get; set; }
         public int CustomerId { get; set; }
         public string? CustomerName { get; set; }
+    
         public CustomerRefDto? Customer { get; set; }
 }
 

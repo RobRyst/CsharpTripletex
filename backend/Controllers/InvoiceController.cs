@@ -1,7 +1,6 @@
 using backend.Domain.Interfaces;
-using backend.Domain.Models;
 using Microsoft.AspNetCore.Mvc;
-using backend.Domain.Entities;
+using backend.Dtos;
 
 namespace backend.Controllers
 {
@@ -53,20 +52,23 @@ namespace backend.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateInvoice([FromBody] InvoiceModel invoice)
+        public async Task<IActionResult> CreateInvoice([FromBody] TripletexInvoiceCreateDto invoice)
         {
             try
             {
+                if (invoice?.Customer?.Id <= 0)
+                    return BadRequest(new { error = "Valid Tripletex customer ID is required" });
+
                 var tripletexId = await _invoiceService.CreateInvoiceInTripletexAsync(invoice);
+
                 return Ok(new { message = "Invoice created in Tripletex", tripletexId });
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "Error posting invoices from database");
+                _logger.LogError(ex, "Error creating invoice");
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
-
 
         [HttpPost("sync")]
         public async Task<IActionResult> SyncInvoices()

@@ -8,7 +8,7 @@ namespace backend.Mappers
     {
         public static CustomerModel ToModel(CustomerDto dto) => new CustomerModel
         {
-            Id = dto.Customerid,
+            Id = dto.Id, // This will be 0 if coming from Tripletex only
             TripletexId = dto.TripletexId,
             Name = dto.Name ?? string.Empty,
             Email = dto.Email ?? string.Empty,
@@ -25,15 +25,15 @@ namespace backend.Mappers
         {
             Id = entity.Id,
             TripletexId = entity.TripletexId,
-            Name = entity.Name,
-            Email = entity.Email,
-            OrganizationNumber = entity.OrganizationNumber,
-            PhoneNumber = entity.PhoneNumber,
-            PostalAddress = entity.PostalAddress,
-            AddressLine1 = entity.AddressLine1,
-            PostalCode = entity.PostalCode,
-            City = entity.City,
-            Country = entity.Country
+            Name = entity.Name ?? string.Empty,
+            Email = entity.Email ?? string.Empty,
+            OrganizationNumber = entity.OrganizationNumber ?? string.Empty,
+            PhoneNumber = entity.PhoneNumber ?? string.Empty,
+            PostalAddress = entity.PostalAddress ?? string.Empty,
+            AddressLine1 = entity.AddressLine1 ?? string.Empty,
+            PostalCode = entity.PostalCode ?? string.Empty,
+            City = entity.City ?? string.Empty,
+            Country = entity.Country ?? string.Empty
         };
 
         public static Customer ToEntity(CustomerModel model) => new Customer

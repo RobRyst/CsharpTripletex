@@ -75,6 +75,7 @@ namespace backend.Services
 
             var customer = new CustomerModel
             {
+                Id = root.GetProperty("id").GetInt32(),
                 TripletexId = root.GetProperty("id").GetInt32(),
                 Name = root.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null,
                 Email = root.TryGetProperty("email", out var emailElement) ? emailElement.GetString() : null
@@ -166,23 +167,24 @@ var tripletexDto = new TripletexCustomerCreateDto
         var json = JsonSerializer.Serialize(tripletexDto, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.SendAsync(request);
 
-        var content = await response.Content.ReadAsStringAsync();
+                var response = await _httpClient.SendAsync(request);
 
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogError("Failed to create customer in Tripletex: {StatusCode} - {Content}", response.StatusCode, content);
-            throw new HttpRequestException($"Tripletex error: {response.StatusCode}");
-        }
-        
+                var content = await response.Content.ReadAsStringAsync();
 
-        var doc = JsonDocument.Parse(content);
-        var id = doc.RootElement.GetProperty("value").GetProperty("id").GetInt32();
 
-        _logger.LogInformation("Created customer in Tripletex with ID {TripletexId}", id);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Failed to create customer in Tripletex: {StatusCode} - {Content}", response.StatusCode, content);
+                    throw new HttpRequestException($"Tripletex error: {response.StatusCode}");
+                }
 
-        return id;
+                var doc = JsonDocument.Parse(content);
+                var tripletexId = doc.RootElement.GetProperty("value").GetProperty("id").GetInt32();
+                _logger.LogInformation("Created customer in Tripletex with ID {TripletexId}", tripletexId);
+                
+                return tripletexId;
+
     }
     catch (Exception ex)
     {

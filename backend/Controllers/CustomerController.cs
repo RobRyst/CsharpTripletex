@@ -22,7 +22,7 @@ namespace backend.Controllers
         {
             try
             {
-                var customers = await _customerService.GetCustomersAsync();
+                var customers = await _customerService.GetCustomersFromDatabaseAsync();
                 return Ok(customers);
             }
             catch (Exception ex)

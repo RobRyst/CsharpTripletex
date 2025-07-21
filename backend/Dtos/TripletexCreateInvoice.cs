@@ -1,22 +1,25 @@
 namespace backend.Dtos
 {
-    public class TripletexInvoiceCreateDto
-    {
-        public TripletexCustomerRefDto? Customer { get; set; }
+using System.Text.Json.Serialization;
 
-        public string? InvoiceDate { get; set; }
+public class TripletexInvoiceCreateDto
+{
+    public TripletexCustomerRefDto Customer { get; set; } = default!;
+    public string InvoiceDate { get; set; } = default!;
+    public string InvoiceDueDate { get; set; } = default!;
+    public TripletexCurrencyDto Currency { get; set; } = new TripletexCurrencyDto { Code = "NOK" };
 
-        public string? InvoiceDueDate { get; set; } // <-- Add this
+    [JsonPropertyName("invoiceLine")]
+    public List<TripletexInvoiceLineDto> InvoiceLines { get; set; } = new();
+}
 
-        public CurrencyDto Currency { get; set; } = new CurrencyDto();
+}
 
-        public List<TripletexInvoiceLineDto>? InvoiceLines { get; set; } // <-- Add this
-    }
 
-    public class CurrencyDto
-    {
-        public string Code { get; set; } = "NOK";
-    }
+public class TripletexCurrencyDto
+{
+    public string Code { get; set; } = "NOK";
+}
 
     public class TripletexCustomerRefDto
     {
@@ -25,15 +28,9 @@ namespace backend.Dtos
 
     public class TripletexInvoiceLineDto
     {
-        public TripletexProductRefDto? Product { get; set; }
+        public string Description { get; set; } = string.Empty;
         public decimal Quantity { get; set; }
         public decimal UnitPrice { get; set; }
-        public string? Description { get; set; }
-    }
-
-    public class TripletexProductRefDto
-    {
-        public int Id { get; set; }
     }
 
     public class TripletexResponseDto
@@ -45,4 +42,5 @@ namespace backend.Dtos
     {
         public int Id { get; set; }
     }
-}
+
+

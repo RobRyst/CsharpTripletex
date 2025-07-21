@@ -1,5 +1,6 @@
 // IInvoiceService.cs
 using backend.Domain.Models;
+using backend.Dtos;
 
 namespace backend.Domain.Interfaces
 {
@@ -10,6 +11,7 @@ namespace backend.Domain.Interfaces
         Task<InvoiceModel> GetInvoiceByIdAsync(int id);
         Task<List<InvoiceModel>> GetInvoicesFromTripletexAsync();
         Task SyncInvoicesFromTripletexAsync();
-        Task<int> CreateInvoiceInTripletexAsync(InvoiceModel invoice);
+        Task<int> CreateInvoiceInTripletexAsync(TripletexInvoiceCreateDto dto);
+
     }
 }
