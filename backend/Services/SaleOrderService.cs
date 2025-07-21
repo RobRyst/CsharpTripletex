@@ -4,6 +4,7 @@ using backend.Domain.Interfaces;
 using backend.Domain.Models;
 using backend.Dtos;
 using backend.Infrastructure.Data;
+using backend.Mappers;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -29,7 +30,7 @@ namespace backend.Services
             try
             {
                 var orders = await GetSaleOrdersFromTripletexAsync();
-                
+
                 _logger.LogInformation("Retrieved {Count} orders from Tripletex", orders.Count);
 
                 foreach (var dto in orders)
@@ -38,27 +39,14 @@ namespace backend.Services
 
                     if (existing == null)
                     {
-                        var orderDate = DateOnly.Parse(dto.OrderDate);
-                        var order = new SaleOrder
-                        {
-                            TripletexId = dto.Id,
-                            OrderNumber = dto.OrderNumber,
-                            Status = dto.Status,
-                            OrderDate = orderDate,
-                            TotalAmount = dto.TotalAmount,
-                            CustomerId = dto.Customer?.Id ?? 0
-                        };
-
+                        var order = SaleOrderMapper.ToEntity(dto);
                         _context.Saleorders.Add(order);
-                        _logger.LogInformation("Added new order: {OrderNumber}", dto.OrderNumber);
+                        _logger.LogInformation("Added new order: {OrderNumber}", dto.Number);
                     }
                     else
                     {
-                        existing.Status = dto.Status;
-                        existing.TotalAmount = dto.TotalAmount;
-                        existing.OrderDate = DateOnly.Parse(dto.OrderDate);
-                        existing.OrderNumber = dto.OrderNumber;
-                        _logger.LogInformation("Updated existing order: {OrderNumber}", dto.OrderNumber);
+                        SaleOrderMapper.UpdateEntity(existing, dto);
+                        _logger.LogInformation("Updated existing order: {OrderNumber}", dto.Number);
                     }
                 }
 
@@ -76,39 +64,17 @@ namespace backend.Services
         public async Task<List<SaleOrderDto>> GetSaleOrdersFromTripletexAsync()
         {
             var authHeader = await _tokenService.GetAuthorizationAsync();
-            _logger.LogInformation("Authorization header obtained: {AuthHeader}", 
-                authHeader != null ? authHeader.Substring(0, Math.Min(20, authHeader.Length)) + "..." : "NULL");
-
-            // Expand date range for testing - try last 365 days
             var fromDate = DateTime.UtcNow.AddDays(-365).ToString("yyyy-MM-dd");
-            var toDate = DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd"); // Also check future orders
+            var toDate = DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd");
 
-            // Enhanced URL with more fields and debugging parameters
-            var url = $"https://api-test.tripletex.tech/v2/order?orderDateFrom={fromDate}&orderDateTo={toDate}&fields=id,number,orderDate,deliveryDate,invoicesDueDate,customer(id,name,email),currency(id,code),department(id,name),project(id,name),invoiceReference,ourReference,yourReference,deliveryAddress,invoiceAddress,comment,attention,terms,lines,discount,vatType,deliveryComment,invoiceComment&count=2000&from=0";
-
-            _logger.LogInformation("API Request URL: {Url}", url);
-            _logger.LogInformation("Date range: {FromDate} to {ToDate}", fromDate, toDate);
-
+            var url = $"https://api-test.tripletex.tech/v2/order?orderDateFrom={fromDate}&orderDateTo={toDate}&fields=id,number,status,orderDate,customer(id,name,email)";
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", authHeader);
-            
-            // Add additional headers that might be required
             request.Headers.Add("Accept", "application/json");
             request.Headers.Add("User-Agent", "YourApp/1.0");
 
-            _logger.LogInformation("Fetching sales orders from Tripletex...");
-
             var response = await _httpClient.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
-
-            _logger.LogInformation("Tripletex API Response Status: {StatusCode}", response.StatusCode);
-            _logger.LogInformation("Response Headers: {Headers}", string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}")));
-            _logger.LogInformation("Response Content Length: {Length}", responseContent?.Length ?? 0);
-            
-            var truncatedContent = responseContent?.Length > 1000 
-                ? responseContent.Substring(0, 1000) + "..." 
-                : responseContent;
-            _logger.LogInformation("Tripletex API Response Content (truncated): {Content}", truncatedContent);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -116,84 +82,111 @@ namespace backend.Services
                 throw new HttpRequestException($"Sales order fetch failed: {response.StatusCode} - {responseContent}");
             }
 
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
             try
             {
-                // First, let's try to deserialize as a generic object to see the structure
-                var jsonDocument = JsonDocument.Parse(responseContent);
-                _logger.LogInformation("JSON Root Properties: {Properties}", 
-                    string.Join(", ", jsonDocument.RootElement.EnumerateObject().Select(p => p.Name)));
-
-                // Check if the response has a different structure than expected
-                if (jsonDocument.RootElement.TryGetProperty("values", out var valuesElement))
-                {
-                    _logger.LogInformation("Found 'values' array with {Count} items", valuesElement.GetArrayLength());
-                }
-                else if (jsonDocument.RootElement.TryGetProperty("value", out var valueElement))
-                {
-                    _logger.LogInformation("Found 'value' array with {Count} items", valueElement.GetArrayLength());
-                }
-                else
-                {
-                    _logger.LogWarning("Neither 'values' nor 'value' property found in response");
-                }
-
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-
-                // Try both possible response structures
-                SaleOrderListResponse result = null;
-                
+                SaleOrderListResponse result;
                 try
                 {
                     result = JsonSerializer.Deserialize<SaleOrderListResponse>(responseContent, options);
                 }
-                catch (JsonException ex)
+                catch (JsonException)
                 {
-                    _logger.LogWarning(ex, "Failed to deserialize with 'Value' property, trying 'Values'");
-                    
-                    // Try with alternative response structure
-                    var alternativeResponse = JsonSerializer.Deserialize<SaleOrderListResponseAlternative>(responseContent, options);
-                    result = new SaleOrderListResponse { Value = alternativeResponse?.Values ?? new List<SaleOrderDto>() };
+                    var alt = JsonSerializer.Deserialize<SaleOrderListResponseAlternative>(responseContent, options);
+                    result = new SaleOrderListResponse { Value = alt?.Values ?? new() };
                 }
 
-                _logger.LogInformation("Deserialized {Count} orders from response", result?.Value?.Count ?? 0);
-                
-                if (result?.Value?.Any() == true)
-                {
-                    var firstOrder = result.Value.First();
-                    _logger.LogInformation("First order sample: Id={Id}, Number={Number}, Date={Date}, Status={Status}", 
-                        firstOrder.Id, firstOrder.OrderNumber, firstOrder.OrderDate, firstOrder.Status);
-                }
-
-                return result?.Value ?? new List<SaleOrderDto>();
+                return result?.Value ?? new();
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, "Error deserializing JSON response: {Response}", responseContent);
+                _logger.LogError(ex, "Error deserializing JSON from Tripletex");
                 throw;
             }
         }
 
-        public async Task<List<SaleOrder>> GetAllWithUserAsync()
+        public async Task<List<SaleOrderDto>> GetAllWithUserAsync()
         {
             return await _context.Saleorders
                 .Include(o => o.Customer)
+                .Select(o => new SaleOrderDto
+                {
+                    Id = o.Id,
+                    Number = o.Number,
+                    Status = o.Status,
+                    OrderDate = o.OrderDate.ToDateTime(TimeOnly.MinValue),
+                    Amount = o.Amount,
+                    CustomerId = o.CustomerId,
+                    CustomerName = o.Customer.Name
+                })
                 .ToListAsync();
         }
 
-        public async Task<SaleOrder?> GetSaleOrderByIdAsync(int id)
+        public async Task<SaleOrderDto?> GetSaleOrderByIdAsync(int id)
         {
             var order = await _context.Saleorders
-                .Include(saleOrder => saleOrder.Customer)
-                .FirstOrDefaultAsync(saleOrder => saleOrder.Id == id);
+                .Include(o => o.Customer)
+                .FirstOrDefaultAsync(o => o.Id == id);
 
             if (order == null)
                 throw new KeyNotFoundException($"Sale order with ID {id} not found.");
 
-            return order;
+            return new SaleOrderDto
+            {
+                Id = order.Id,
+                Number = order.Number,
+                Status = order.Status,
+                OrderDate = order.OrderDate.ToDateTime(TimeOnly.MinValue),
+                Amount = order.Amount,
+                CustomerId = order.CustomerId,
+                CustomerName = order.Customer?.Name
+            };
+        }
+
+        public async Task<SaleOrderDto> CreateSaleOrderAsync(TripletexCreateSaleOrder dto)
+        {
+            var order = SaleOrderMapper.ToEntity(dto);
+            _context.Saleorders.Add(order);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Created SaleOrder {Number}", order.Number);
+
+            var invoice = new Invoice
+            {
+                TripletexId = 0,
+                Status = "Created",
+                Total = order.Amount,
+                InvoiceCreated = DateOnly.FromDateTime(DateTime.UtcNow),
+                InvoiceDate = order.OrderDate,
+                InvoiceDueDate = order.OrderDate.AddDays(14),
+                DueDate = order.OrderDate.AddDays(14),
+                Currency = "NOK",
+                CustomerId = order.CustomerId,
+                CustomerTripletexId = 0
+            };
+
+            _context.Invoices.Add(invoice);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Invoice created for SaleOrder {Number}", order.Number);
+
+            var customer = await _context.Customers.FindAsync(order.CustomerId);
+
+            return new SaleOrderDto
+            {
+                Id = order.Id,
+                Number = order.Number,
+                Status = order.Status,
+                OrderDate = order.OrderDate.ToDateTime(TimeOnly.MinValue),
+                Amount = order.Amount,
+                CustomerId = order.CustomerId,
+                CustomerName = customer?.Name
+            };
         }
 
         public async Task ImportSaleOrdersAsync()

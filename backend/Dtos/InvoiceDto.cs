@@ -5,7 +5,7 @@ namespace backend.Dtos
         public int InvoiceId { get; set; }
         public int TripletexId { get; set; }
         public string? Status { get; set; }
-        public double? Total { get; set; }
+        public decimal? Total { get; set; }
         public DateOnly InvoiceCreated { get; set; }
 
         public DateOnly InvoiceDueDate { get; set; }

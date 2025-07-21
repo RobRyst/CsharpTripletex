@@ -25,8 +25,7 @@ namespace backend.Services
                 var invoice = new Invoice
                 {
                     TripletexId = dto.TripletexId,
-                    Status = dto.Status,
-                    Total = dto.Total ?? 0.0,
+                    Total = dto.Total ?? 0,
                     InvoiceCreated = dto.InvoiceCreated,
                     InvoiceDueDate = dto.InvoiceDueDate,
                     CustomerId = dto.CustomerId,

@@ -85,7 +85,7 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<double>("TotalAmount")
+                    b.Property<double>("Amount")
                         .HasColumnType("double");
 
                     b.Property<int>("TripletexId")

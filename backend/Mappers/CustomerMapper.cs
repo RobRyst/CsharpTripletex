@@ -1,23 +1,68 @@
 using backend.Domain.Entities;
 using backend.Domain.Models;
+using backend.Dtos;
 
 namespace backend.Mappers
 {
     public static class CustomerMapper
-{
-    public static Customer ToEntity(CustomerModel model) => new Customer
     {
-        TripletexId = model.TripletexId,
-        Name = model.Name ?? "",
-        Email = model.Email ?? "",
-        OrganizationNumber = model.OrganizationNumber ?? "",
-        PhoneNumber = model.PhoneNumber ?? "",
-        PostalAddress = model.PostalAddress ?? "",
-        AddressLine1 = model.AddressLine1 ?? "",
-        PostalCode = model.PostalCode ?? "",
-        City = model.City ?? "",
-        Country = model.Country ?? ""
-    };
-}
+        public static CustomerModel ToModel(CustomerDto dto) => new CustomerModel
+        {
+            Id = dto.Customerid,
+            TripletexId = dto.TripletexId,
+            Name = dto.Name ?? string.Empty,
+            Email = dto.Email ?? string.Empty,
+            OrganizationNumber = dto.OrganizationNumber ?? string.Empty,
+            PhoneNumber = dto.PhoneNumber ?? string.Empty,
+            PostalAddress = dto.PostalAddress ?? string.Empty,
+            AddressLine1 = dto.AddressLine1 ?? string.Empty,
+            PostalCode = dto.PostalCode ?? string.Empty,
+            City = dto.City ?? string.Empty,
+            Country = dto.Country ?? string.Empty
+        };
 
+        public static CustomerModel ToModel(Customer entity) => new CustomerModel
+        {
+            Id = entity.Id,
+            TripletexId = entity.TripletexId,
+            Name = entity.Name,
+            Email = entity.Email,
+            OrganizationNumber = entity.OrganizationNumber,
+            PhoneNumber = entity.PhoneNumber,
+            PostalAddress = entity.PostalAddress,
+            AddressLine1 = entity.AddressLine1,
+            PostalCode = entity.PostalCode,
+            City = entity.City,
+            Country = entity.Country
+        };
+
+        public static Customer ToEntity(CustomerModel model) => new Customer
+        {
+            Id = model.Id,
+            TripletexId = model.TripletexId,
+            Name = model.Name,
+            Email = model.Email,
+            OrganizationNumber = model.OrganizationNumber,
+            PhoneNumber = model.PhoneNumber,
+            PostalAddress = model.PostalAddress,
+            AddressLine1 = model.AddressLine1,
+            PostalCode = model.PostalCode,
+            City = model.City,
+            Country = model.Country
+        };
+
+        public static void UpdateEntity(Customer entity, CustomerDto dto)
+        {
+            entity.TripletexId = dto.TripletexId;
+            entity.Name = dto.Name ?? entity.Name;
+            entity.Email = dto.Email ?? entity.Email;
+            entity.OrganizationNumber = dto.OrganizationNumber ?? entity.OrganizationNumber;
+            entity.PhoneNumber = dto.PhoneNumber ?? entity.PhoneNumber;
+            entity.PostalAddress = dto.PostalAddress ?? entity.PostalAddress;
+            entity.AddressLine1 = dto.AddressLine1 ?? entity.AddressLine1;
+            entity.PostalCode = dto.PostalCode ?? entity.PostalCode;
+            entity.City = dto.City ?? entity.City;
+            entity.Country = dto.Country ?? entity.Country;
+        }
+    }
 }

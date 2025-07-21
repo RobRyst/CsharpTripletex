@@ -1,3 +1,4 @@
+using backend.Dtos;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -49,6 +50,21 @@ namespace backend.Controllers
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
+
+        [HttpPost]
+public async Task<IActionResult> CreateSaleOrder([FromBody] TripletexCreateSaleOrder dto)
+{
+    try
+    {
+        var order = await _saleOrderService.CreateSaleOrderAsync(dto);
+        return CreatedAtAction(nameof(GetSaleOrder), new { id = order.Id }, order);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error creating SaleOrder");
+        return StatusCode(500, new { error = "Internal server error" });
+    }
+}
 
         [HttpPost("sync")]
         public async Task<IActionResult> SyncSaleOrders()

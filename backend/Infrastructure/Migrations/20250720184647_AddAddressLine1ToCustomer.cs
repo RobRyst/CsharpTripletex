@@ -15,7 +15,7 @@ namespace backend.Migrations
                 table: "SaleOrder");
 
             migrationBuilder.AlterColumn<decimal>(
-                name: "TotalAmount",
+                name: "Amount",
                 table: "SaleOrder",
                 type: "decimal(18,2)",
                 nullable: false,
@@ -148,7 +148,7 @@ namespace backend.Migrations
                 table: "Customers");
 
             migrationBuilder.AlterColumn<double>(
-                name: "TotalAmount",
+                name: "Amount",
                 table: "SaleOrder",
                 type: "double",
                 nullable: false,

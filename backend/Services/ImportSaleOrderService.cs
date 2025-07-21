@@ -27,10 +27,10 @@ namespace backend.Services
                 var saleOrder = new SaleOrder
                 {
                     TripletexId = dto.Id,
-                    OrderNumber = dto.OrderNumber,
+                    Number = dto.Number,
                     Status = dto.Status,
-                    TotalAmount = dto.TotalAmount,
-                    OrderDate = DateOnly.Parse(dto.OrderDate),
+                    Amount = dto.Amount,
+                    OrderDate = DateOnly.FromDateTime(dto.OrderDate),
                     CustomerId = dto.Customer?.Id ?? 0,
                 };
 

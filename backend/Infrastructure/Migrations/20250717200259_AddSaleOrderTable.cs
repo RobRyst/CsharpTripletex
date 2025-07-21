@@ -23,7 +23,7 @@ namespace backend.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Status = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    TotalAmount = table.Column<double>(type: "double", nullable: false),
+                    Amount = table.Column<decimal>(type: "double", nullable: false),
                     OrderDate = table.Column<DateOnly>(type: "date", nullable: false),
                     CustomerId = table.Column<int>(type: "int", nullable: true)
                 },

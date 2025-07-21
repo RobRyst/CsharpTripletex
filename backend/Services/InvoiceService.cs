@@ -116,29 +116,37 @@ public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
             }
         }
         
-        public async Task<int> CreateInvoiceInTripletexAsync(InvoiceModel invoice)
+       public async Task<int> CreateInvoiceInTripletexAsync(InvoiceModel invoice)
 {
     try
     {
         var authHeader = await _tokenService.GetAuthorizationAsync();
-        var tripletexInvoiceDto = new TripletexInvoiceCreateDto
+
+        var invoiceCreateDto = new TripletexInvoiceCreateDto
         {
-            Customer = new TripletexCustomerRefDto
-            {
-                Id = invoice.CustomerTripletexId
-            },
+            Customer = new TripletexCustomerRefDto { Id = invoice.CustomerTripletexId },
             InvoiceDate = invoice.InvoiceDate.ToString("yyyy-MM-dd"),
+            InvoiceDueDate = invoice.InvoiceDueDate.ToString("yyyy-MM-dd"),
             Currency = new CurrencyDto { Code = invoice.Currency ?? "NOK" },
-            Status = "DRAFT"
+            InvoiceLines = new List<TripletexInvoiceLineDto>
+            {
+                new TripletexInvoiceLineDto
+                {
+                    Product = new TripletexProductRefDto { Id = 1 }, // Replace with actual product ID
+                    Quantity = 1,
+                    UnitPrice = invoice.Total,
+                    Description = "Auto-generated line item"
+                }
+            }
         };
 
-        var options = new JsonSerializerOptions
+        var jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = true
         };
 
-        var json = JsonSerializer.Serialize(tripletexInvoiceDto, options);
+        var json = JsonSerializer.Serialize(invoiceCreateDto, jsonOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         _logger.LogInformation("Creating invoice in Tripletex with data: {Json}", json);
@@ -155,7 +163,7 @@ public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError("Error creating invoice in Tripletex: {StatusCode} - {Error}", response.StatusCode, responseBody);
-            throw new HttpRequestException($"Invoice creation failed: {response.StatusCode} - {responseBody}");
+            throw new HttpRequestException($"Failed to create invoice: {response.StatusCode} - {responseBody}");
         }
 
         var result = JsonSerializer.Deserialize<TripletexResponseDto>(responseBody, new JsonSerializerOptions
@@ -171,6 +179,8 @@ public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
         throw;
     }
 }
+
+
 
         private async Task<IEnumerable<Invoice>> ParseTripletexInvoiceResponse(string jsonResponse)
         {
@@ -205,7 +215,7 @@ public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
                             Status = invoiceElement.TryGetProperty("state", out var stateElement) ?
                                 stateElement.GetString() ?? "Unknown" : "Unknown",
                             Total = invoiceElement.TryGetProperty("amount", out var amountElement) ?
-                                amountElement.GetDouble() : 0.0,
+                                amountElement.GetDecimal() : 0,
                             InvoiceCreated = invoiceElement.TryGetProperty("invoiceDate", out var invoiceDateElement) ?
                                 DateOnly.FromDateTime(invoiceDateElement.GetDateTime()) : DateOnly.FromDateTime(DateTime.UtcNow),
                             InvoiceDueDate = invoiceElement.TryGetProperty("dueDate", out var dueDateElement) ?

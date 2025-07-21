@@ -22,7 +22,7 @@ namespace backend.Services
 
             foreach (var dto in customerDtos)
             {
-                var model = CustomerDtoMapper.ToModel(dto);
+                var model = CustomerMapper.ToModel(dto);
                 var entity = CustomerMapper.ToEntity(model);
                 _db.Customers.Add(entity);
             }

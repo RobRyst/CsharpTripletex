@@ -14,7 +14,7 @@ namespace backend.Domain.Entities
     [MaxLength(50)]
     public string Status { get; set; } = string.Empty;
 
-    public double Total { get; set; }
+    public decimal Total { get; set; }
 
     public DateOnly InvoiceCreated { get; set; }
 
@@ -33,6 +33,6 @@ namespace backend.Domain.Entities
     public int? CustomerId { get; set; }
 
     public Customer? Customer { get; set; }
-}
+    }
 
 }

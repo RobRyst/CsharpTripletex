@@ -12,8 +12,8 @@ using backend.Infrastructure.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250720211327_AddCurrencyToInvoice")]
-    partial class AddCurrencyToInvoice
+    [Migration("20250721162511_InitialCleanSchema")]
+    partial class InitialCleanSchema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -34,45 +34,41 @@ namespace backend.Migrations
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AddressLine1")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("City")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("Country")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("OrganizationNumber")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("PhoneNumber")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("PostalAddress")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("PostalCode")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<int>("TripletexId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TripletexId")
+                        .IsUnique();
 
                     b.ToTable("Customers");
                 });
@@ -137,24 +133,24 @@ namespace backend.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("CustomerId")
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CustomerId")
                         .HasColumnType("int");
 
-                    b.Property<DateOnly>("OrderDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("OrderNumber")
+                    b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
+
+                    b.Property<DateOnly>("OrderDate")
+                        .HasColumnType("date");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("TripletexId")
                         .HasColumnType("int");
@@ -169,54 +165,6 @@ namespace backend.Migrations
                     b.ToTable("Saleorders");
                 });
 
-            modelBuilder.Entity("backend.Domain.Models.CustomerModel", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AddressLine1")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("City")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Country")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("OrganizationNumber")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("PostalAddress")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("PostalCode")
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("TripletexId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TripletexId")
-                        .IsUnique();
-
-                    b.ToTable("CustomerModel");
-                });
-
             modelBuilder.Entity("backend.Domain.Entities.Invoice", b =>
                 {
                     b.HasOne("backend.Domain.Entities.Customer", "Customer")
@@ -229,10 +177,11 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Domain.Entities.SaleOrder", b =>
                 {
-                    b.HasOne("backend.Domain.Models.CustomerModel", "Customer")
-                        .WithMany()
+                    b.HasOne("backend.Domain.Entities.Customer", "Customer")
+                        .WithMany("SaleOrders")
                         .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Customer");
                 });
@@ -240,6 +189,8 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Domain.Entities.Customer", b =>
                 {
                     b.Navigation("Invoices");
+
+                    b.Navigation("SaleOrders");
                 });
 #pragma warning restore 612, 618
         }

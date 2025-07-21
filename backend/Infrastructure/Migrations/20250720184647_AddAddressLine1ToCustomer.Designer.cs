@@ -87,7 +87,7 @@ namespace backend.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
-                    b.Property<decimal>("TotalAmount")
+                    b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("TripletexId")

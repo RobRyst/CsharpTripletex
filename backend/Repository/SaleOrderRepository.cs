@@ -36,9 +36,8 @@ namespace backend.Repository
                 var existing = await GetByTripletexIdAsync(saleOrder.TripletexId);
                 if (existing != null)
                 {
-                    existing.OrderNumber = saleOrder.OrderNumber;
                     existing.Status = saleOrder.Status;
-                    existing.TotalAmount = saleOrder.TotalAmount;
+                    existing.Amount = saleOrder.Amount;
                     existing.OrderDate = saleOrder.OrderDate;
                     existing.CustomerId = saleOrder.CustomerId;
                     _context.Entry(existing).State = EntityState.Modified;

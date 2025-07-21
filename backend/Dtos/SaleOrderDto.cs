@@ -3,21 +3,14 @@ namespace backend.Dtos
     public class SaleOrderDto
     {
         public int Id { get; set; }
-        public string Number { get; set; } = "";
-        public string OrderNumber { get; set; } = "";
-        public string Status { get; set; } = "";
-        public double TotalAmount { get; set; }
-        public string OrderDate { get; set; } = "";
+        public string? Number { get; set; }
+        public string? Status { get; set; }
+        public DateTime OrderDate { get; set; }
+        public decimal Amount { get; set; }
+        public int CustomerId { get; set; }
+        public string? CustomerName { get; set; }
         public CustomerRefDto? Customer { get; set; }
-
-        // Additional fields that Tripletex might return
-        public string? DeliveryDate { get; set; }
-        public string? InvoicesDueDate { get; set; }
-        public string? InvoiceReference { get; set; }
-        public string? OurReference { get; set; }
-        public string? YourReference { get; set; }
-        public string? Comment { get; set; }
-    }
+}
 
     public class CustomerRefDto
     {
