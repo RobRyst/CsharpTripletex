@@ -1,36 +1,47 @@
-namespace backend.Dtos
-{
 using System.Text.Json.Serialization;
 
-public class TripletexInvoiceCreateDto
+namespace backend.Dtos
 {
-    public TripletexCustomerRefDto Customer { get; set; } = default!;
-    public string InvoiceDate { get; set; } = default!;
-    public string InvoiceDueDate { get; set; } = default!;
-    public TripletexCurrencyDto Currency { get; set; } = new TripletexCurrencyDto { Code = "NOK" };
+    public class TripletexInvoiceCreateDto
+    {
+        public TripletexCustomerRefDto Customer { get; set; } = default!;
+        public string InvoiceDate { get; set; } = default!;
+        public string InvoiceDueDate { get; set; } = default!;
+        public TripletexCurrencyRefDto Currency { get; set; } = new TripletexCurrencyRefDto { Id = 1 };
 
-    [JsonPropertyName("invoiceLine")]
-    public List<TripletexInvoiceLineDto> InvoiceLines { get; set; } = new();
-}
-
-}
-
-
-public class TripletexCurrencyDto
-{
-    public string Code { get; set; } = "NOK";
-}
+        // Orders now contain full order structure
+        public List<TripletexOrderDto> Orders { get; set; } = new();
+    }
 
     public class TripletexCustomerRefDto
     {
         public int Id { get; set; }
     }
 
-    public class TripletexInvoiceLineDto
+    public class TripletexCurrencyRefDto
+    {
+        public int Id { get; set; }
+    }
+
+    public class TripletexOrderDto
+    {
+        public string OrderDate { get; set; } = default!;
+        public string DeliveryDate { get; set; } = default!;
+        public TripletexCustomerRefDto Customer { get; set; } = default!;
+
+        [JsonPropertyName("orderLines")]
+        public List<TripletexOrderLineDto> OrderLines { get; set; } = new();
+    }
+
+    public class TripletexOrderLineDto
     {
         public string Description { get; set; } = string.Empty;
-        public decimal Quantity { get; set; }
-        public decimal UnitPrice { get; set; }
+
+        [JsonPropertyName("count")]
+        public decimal Count { get; set; }
+
+        [JsonPropertyName("unitPriceExcludingVatCurrency")]
+        public decimal UnitPriceExcludingVatCurrency { get; set; }
     }
 
     public class TripletexResponseDto
@@ -42,5 +53,4 @@ public class TripletexCurrencyDto
     {
         public int Id { get; set; }
     }
-
-
+}

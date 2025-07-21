@@ -117,77 +117,86 @@ public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
         }
 
         public async Task<int> CreateInvoiceInTripletexAsync(TripletexInvoiceCreateDto dto)
+{
+    try
+    {
+        var authHeader = await _tokenService.GetAuthorizationAsync();
+        var customer = await _customerRepository.GetByTripletexIdAsync(dto.Customer.Id);
+        if (customer == null || customer.TripletexId == 0)
         {
-            try
-            {
-                var authHeader = await _tokenService.GetAuthorizationAsync();
-
-                // Look up the local customer by Tripletex ID from DTO
-                var customer = await _customerRepository.GetByTripletexIdAsync(dto.Customer.Id);
-                if (customer == null || customer.TripletexId == 0)
-                {
-                    throw new InvalidOperationException($"Customer with TripletexId {dto.Customer.Id} does not exist in local DB or has invalid ID");
-                }
-
-                // Convert DTO to domain model (for internal logic/logging if needed)
-                var invoiceModel = InvoiceMapper.FromTripletexDto(dto, customer.Id);
-
-                var invoiceCreateDto = new TripletexInvoiceCreateDto
-                {
-                    Customer = new TripletexCustomerRefDto { Id = customer.TripletexId },
-                    InvoiceDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
-                    InvoiceDueDate = invoiceModel.InvoiceDueDate.ToString("yyyy-MM-dd"),
-                    Currency = new TripletexCurrencyDto { Code = invoiceModel.Currency ?? "NOK" },
-                    InvoiceLines = new List<TripletexInvoiceLineDto>
-            {
-                new TripletexInvoiceLineDto
-                {
-                    Description = "Default product/service",
-                    Quantity = 1,
-                    UnitPrice = invoiceModel.Total
-                }
-            }
-                };
-
-                var jsonOptions = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    WriteIndented = true
-                };
-
-                var json = JsonSerializer.Serialize(invoiceCreateDto, jsonOptions);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                _logger.LogInformation("Creating invoice in Tripletex with data: {Json}", json);
-
-                var request = new HttpRequestMessage(HttpMethod.Post, "https://api-test.tripletex.tech/v2/invoice");
-                request.Headers.Add("Authorization", authHeader);
-                request.Content = content;
-
-                var response = await _httpClient.SendAsync(request);
-                var responseBody = await response.Content.ReadAsStringAsync();
-
-                _logger.LogInformation("Tripletex response: {StatusCode} - {Response}", response.StatusCode, responseBody);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogError("Error creating invoice in Tripletex: {StatusCode} - {Error}", response.StatusCode, responseBody);
-                    throw new HttpRequestException($"Failed to create invoice: {response.StatusCode} - {responseBody}");
-                }
-
-                var result = JsonSerializer.Deserialize<TripletexResponseDto>(responseBody, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-
-                return result?.Value?.Id ?? 0;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error creating invoice in Tripletex");
-                throw;
-            }
+            throw new InvalidOperationException($"Customer with TripletexId {dto.Customer.Id} does not exist in local DB or has invalid ID");
         }
+
+        var invoiceModel = InvoiceMapper.FromTripletexDto(dto, customer.Id);
+
+        var invoiceCreateDto = new TripletexInvoiceCreateDto
+        {
+            Customer = new TripletexCustomerRefDto { Id = customer.TripletexId },
+            InvoiceDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
+            InvoiceDueDate = invoiceModel.InvoiceDueDate.ToString("yyyy-MM-dd"),
+            Currency = new TripletexCurrencyRefDto { Id = 1 },
+
+            Orders = new List<TripletexOrderDto>
+            {
+                new TripletexOrderDto
+                {
+                    OrderDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
+                    DeliveryDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
+                    Customer = new TripletexCustomerRefDto { Id = customer.TripletexId },
+                    OrderLines = new List<TripletexOrderLineDto>
+                    {
+                        new TripletexOrderLineDto
+                        {
+                            Description = "Consulting services July 2025",
+                            Count = 1,
+                            UnitPriceExcludingVatCurrency = invoiceModel.Total
+                        }
+                    }
+                }
+            }
+        };
+
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true
+        };
+
+        var json = JsonSerializer.Serialize(invoiceCreateDto, jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        _logger.LogInformation("Creating invoice in Tripletex with data: {Json}", json);
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://api-test.tripletex.tech/v2/invoice");
+        request.Headers.Add("Authorization", authHeader);
+        request.Content = content;
+
+        var response = await _httpClient.SendAsync(request);
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        _logger.LogInformation("Tripletex response: {StatusCode} - {Response}", response.StatusCode, responseBody);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("Error creating invoice in Tripletex: {StatusCode} - {Error}", response.StatusCode, responseBody);
+            throw new HttpRequestException($"Failed to create invoice: {response.StatusCode} - {responseBody}");
+        }
+
+        var result = JsonSerializer.Deserialize<TripletexResponseDto>(responseBody, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        return result?.Value?.Id ?? 0;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error creating invoice in Tripletex");
+        throw;
+    }
+}
+
+
 
         private async Task<IEnumerable<Invoice>> ParseTripletexInvoiceResponse(string jsonResponse)
         {

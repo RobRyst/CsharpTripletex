@@ -35,19 +35,25 @@ namespace backend.Mappers
         };
         public static InvoiceModel FromTripletexDto(TripletexInvoiceCreateDto dto, int localCustomerId)
         {
-            var parseSuccess1 = DateOnly.TryParse(dto.InvoiceDate, out var createdDate);
-            var parseSuccess2 = DateOnly.TryParse(dto.InvoiceDueDate, out var dueDate);
+            Console.WriteLine($"DEBUG: dto.InvoiceDate = {dto.InvoiceDate}");
+            Console.WriteLine($"DEBUG: dto.InvoiceDueDate = {dto.InvoiceDueDate}");
+            if (!DateOnly.TryParseExact(dto.InvoiceDate, "yyyy-MM-dd", out var invoiceDate))
+            {
+                throw new FormatException($"Invalid date format for invoiceDate: {dto.InvoiceDate}");
+            }
 
-            if (!parseSuccess1 || !parseSuccess2)
-                throw new FormatException("Invalid date format for invoice");
+            if (!DateOnly.TryParseExact(dto.InvoiceDueDate, "yyyy-MM-dd", out var invoiceDueDate))
+            {
+                throw new FormatException($"Invalid date format for invoiceDueDate: {dto.InvoiceDueDate}");
+            }
 
             return new InvoiceModel
             {
                 CustomerId = localCustomerId,
-                Currency = dto.Currency?.Code ?? "NOK",
-                InvoiceCreated = createdDate,
-                InvoiceDueDate = dueDate,
-                Total = dto.InvoiceLines?.FirstOrDefault()?.UnitPrice ?? 0
+                Currency = "NOK",
+                InvoiceCreated = invoiceDate,
+                InvoiceDueDate = invoiceDueDate,
+                Total = dto.Orders?.FirstOrDefault()?.OrderLines?.FirstOrDefault()?.UnitPriceExcludingVatCurrency ?? 0
             };
         }
     }

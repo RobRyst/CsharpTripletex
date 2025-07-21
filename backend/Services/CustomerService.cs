@@ -137,25 +137,25 @@ namespace backend.Services
         }
         
         public async Task<int> CreateCustomerInTripletexAsync(CustomerModel localCustomer)
-{
-    try
-    {
-var tripletexDto = new TripletexCustomerCreateDto
-{
-    Name = localCustomer.Name!,
-    Email = localCustomer.Email,
-    OrganizationNumber = localCustomer.OrganizationNumber,
-    PhoneNumber = localCustomer.PhoneNumber,
-    IsCustomer = true,
-        PostalAddress = new TripletexAddressDto
-    {
-        AddressLine1 = localCustomer.AddressLine1,
-        PostalCode = localCustomer.PostalCode,
-        City = localCustomer.City,
-        Country = new TripletexCountryDto { Id = 160 }
-    }
+        {
+            try
+            {
+        var tripletexDto = new TripletexCustomerCreateDto
+        {
+            Name = localCustomer.Name!,
+            Email = localCustomer.Email,
+            OrganizationNumber = localCustomer.OrganizationNumber,
+            PhoneNumber = localCustomer.PhoneNumber,
+            IsCustomer = true,
+                PostalAddress = new TripletexAddressDto
+            {
+                AddressLine1 = localCustomer.AddressLine1,
+                PostalCode = localCustomer.PostalCode,
+                City = localCustomer.City,
+                Country = new TripletexCountryDto { Id = 160 }
+            }
 
-};
+        };
 
         var url = "https://api-test.tripletex.tech/v2/customer";
         var token = await _tokenService.GetAuthorizationAsync();
