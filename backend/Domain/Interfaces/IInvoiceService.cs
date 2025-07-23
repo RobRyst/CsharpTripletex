@@ -13,6 +13,9 @@ namespace backend.Domain.Interfaces
         Task SyncInvoicesFromTripletexAsync();
         Task<int> CreateInvoiceInTripletexAsync(TripletexInvoiceCreateDto dto, byte[] fileBytes, string fileName, string userId);
         Task<int> CreateInvoiceInTripletexAsync(TripletexInvoiceCreateDto dto);
+        Task<int> CreateInvoiceWithAttachmentAsync(TripletexInvoiceCreateDto dto);
+        Task<bool> VerifyInvoiceAttachmentAsync(int invoiceId);
+        Task<object> GetInvoiceAttachmentDetailsAsync(int invoiceId);
 
     }
 }

@@ -70,50 +70,74 @@ namespace backend.Controllers
             }
         }
 
-        [HttpPost("with-attachment-json")]
-        public async Task<IActionResult> CreateInvoiceWithBase64([FromBody] InvoiceWithBase64Dto dto)
+        [HttpPost("with-attachment")]
+        public async Task<IActionResult> CreateInvoiceWithAttachment([FromBody] TripletexInvoiceCreateDto dto)
         {
             try
             {
-                if (dto.Invoice?.Customer?.Id <= 0)
+                if (dto?.Customer?.Id <= 0)
                     return BadRequest(new { error = "Valid Tripletex customer ID is required" });
+                    
+                if (dto.Amount <= 0)
+                    return BadRequest(new { error = "Invoice amount must be greater than 0" });
 
-                if (string.IsNullOrWhiteSpace(dto.FileBase64))
-                    return BadRequest(new { error = "Base64 file data is required" });
+                if (string.IsNullOrEmpty(dto.InvoiceDate))
+                    dto.InvoiceDate = DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
+                    
+                if (string.IsNullOrEmpty(dto.InvoiceDueDate))
+                    dto.InvoiceDueDate = DateTime.UtcNow.AddDays(14).Date.ToString("yyyy-MM-dd");
 
-                byte[] fileBytes;
-                try
-                {
-                    fileBytes = Convert.FromBase64String(dto.FileBase64);
-                }
-                catch (FormatException ex)
-                {
-                    _logger.LogError("Invalid base64 file content: {Snippet}", dto.FileBase64?.Substring(0, Math.Min(20, dto.FileBase64.Length)));
-                    return BadRequest(new
-                    {
-                        error = "Invalid base64 file format",
-                        detail = ex.Message
-                    });
-                }
+                _logger.LogInformation("Creating invoice with attachment for customer {CustomerId}, amount {Amount}", 
+                    dto.Customer.Id, dto.Amount);
 
-                var tripletexId = await _invoiceService.CreateInvoiceInTripletexAsync(
-                    dto.Invoice,
-                    fileBytes,
-                    dto.FileName,
-                    dto.UserId
-                );
+                var invoiceId = await _invoiceService.CreateInvoiceWithAttachmentAsync(dto);
 
-                return Ok(new { message = "Invoice created and attachment uploaded", tripletexId });
+                return Ok(new { 
+                    message = "Invoice created with attachment", 
+                    invoiceId,
+                    tripletexUrl = $"https://api-test.tripletex.tech/execute/invoiceMenu?invoiceId={invoiceId}&contextId=80382946#attachments"
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating invoice with base64 attachment");
+                _logger.LogError(ex, "Error creating invoice with attachment");
+                return StatusCode(500, new { error = "Internal server error", details = ex.Message });
+            }
+        }
+
+        [HttpGet("{id}/attachment/verify")]
+        public async Task<IActionResult> VerifyInvoiceAttachment(int id)
+        {
+            try
+            {
+                var hasAttachment = await _invoiceService.VerifyInvoiceAttachmentAsync(id);
+                return Ok(new { 
+                    invoiceId = id, 
+                    hasAttachment,
+                    message = hasAttachment ? "Attachment found" : "No attachment found"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error verifying attachment for invoice {Id}", id);
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
 
-
-        
+        [HttpGet("{id}/attachment/details")]
+        public async Task<IActionResult> GetInvoiceAttachmentDetails(int id)
+        {
+            try
+            {
+                var details = await _invoiceService.GetInvoiceAttachmentDetailsAsync(id);
+                return Ok(details);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting attachment details for invoice {Id}", id);
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
 
         [HttpPost("sync")]
         public async Task<IActionResult> SyncInvoices()

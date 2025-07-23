@@ -116,31 +116,41 @@ namespace backend.Services
         }
 
         public async Task<int> CreateInvoiceInTripletexAsync(TripletexInvoiceCreateDto dto, byte[] fileBytes, string fileName, string userId)
-{
-    try
-    {
-        var authHeader = await _tokenService.GetAuthorizationAsync();
-
-        var customer = await _customerRepository.GetByTripletexIdAsync(dto.Customer.Id);
-        if (customer == null || customer.TripletexId == 0)
         {
-            throw new InvalidOperationException($"Customer with TripletexId {dto.Customer.Id} does not exist in local DB or has invalid ID");
-        }
-
-        var invoiceModel = InvoiceMapper.FromTripletexDto(dto, customer.Id);
-
-        var invoicePayload = new
-        {
-            customer = new { id = customer.TripletexId },
-            invoiceDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
-            invoiceDueDate = invoiceModel.InvoiceDueDate.ToString("yyyy-MM-dd"),
-            currency = new { id = 1 },
-            orders = new[]
+            try
             {
+                var authHeader = await _tokenService.GetAuthorizationAsync();
+
+                var customer = await _customerRepository.GetByTripletexIdAsync(dto.Customer.Id);
+                if (customer == null || customer.TripletexId == 0)
+                {
+                    throw new InvalidOperationException($"Customer with TripletexId {dto.Customer.Id} does not exist in local DB or has invalid ID");
+                }
+
+                var invoiceDate = string.IsNullOrEmpty(dto.InvoiceDate)
+                    ? DateTime.UtcNow.Date
+                    : DateTime.Parse(dto.InvoiceDate).Date;
+                var invoiceDueDate = string.IsNullOrEmpty(dto.InvoiceDueDate)
+                    ? DateTime.UtcNow.AddDays(14).Date
+                    : DateTime.Parse(dto.InvoiceDueDate).Date;
+
+                _logger.LogInformation("Creating invoice with Date: {InvoiceDate}, DueDate: {DueDate}, Amount: {Amount}",
+                    invoiceDate.ToString("yyyy-MM-dd"), invoiceDueDate.ToString("yyyy-MM-dd"), dto.Amount);
+
+                var invoiceAmount = dto.Amount > 0 ? dto.Amount : 5000;
+
+                var invoicePayload = new
+                {
+                    customer = new { id = customer.TripletexId },
+                    invoiceDate = invoiceDate.ToString("yyyy-MM-dd"),
+                    invoiceDueDate = invoiceDueDate.ToString("yyyy-MM-dd"),
+                    currency = new { id = 1 },
+                    orders = new[]
+                    {
                 new
                 {
-                    orderDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
-                    deliveryDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
+                    orderDate = invoiceDate.ToString("yyyy-MM-dd"),
+                    deliveryDate = invoiceDate.ToString("yyyy-MM-dd"),
                     customer = new { id = customer.TripletexId },
                     invoicesDueIn = 14,
                     invoicesDueInType = "DAYS",
@@ -152,186 +162,336 @@ namespace backend.Services
                         new
                         {
                             product = new { id = 69691388 },
-                            description = "Consulting services",
+                            description = dto.Description ?? "Consulting services",
                             count = 1,
-                            unitPriceExcludingVatCurrency = invoiceModel.Total,
+                            unitPriceExcludingVatCurrency = invoiceAmount,
                             vatType = new { id = 3 }
                         }
                     }
                 }
             }
-        };
+                };
 
-        var serialized = JsonSerializer.Serialize(invoicePayload, new JsonSerializerOptions { WriteIndented = true });
-        _logger.LogInformation("🧾 Payload being sent to Tripletex:\n{Payload}", serialized);
+                // Create the invoice
+                var invoiceRequest = new HttpRequestMessage(HttpMethod.Post, "https://api-test.tripletex.tech/v2/invoice/?invoice.create");
+                invoiceRequest.Headers.Add("Authorization", authHeader);
+                invoiceRequest.Content = JsonContent.Create(invoicePayload);
+                invoiceRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
-        var invoiceRequest = new HttpRequestMessage(HttpMethod.Post, "https://api-test.tripletex.tech/v2/invoice/?invoice.create");
-        invoiceRequest.Headers.Add("Authorization", authHeader);
-        invoiceRequest.Content = JsonContent.Create(invoicePayload);
-        invoiceRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                var invoiceResponse = await _httpClient.SendAsync(invoiceRequest);
+                var invoiceContent = await invoiceResponse.Content.ReadAsStringAsync();
 
-        _logger.LogInformation("Creating invoice with payload: {Payload}", JsonSerializer.Serialize(invoicePayload, new JsonSerializerOptions { WriteIndented = true }));
-
-        var invoiceResponse = await _httpClient.SendAsync(invoiceRequest);
-        var invoiceContent = await invoiceResponse.Content.ReadAsStringAsync();
-
-        _logger.LogInformation("Invoice creation response: {Status} - {Body}", invoiceResponse.StatusCode, invoiceContent);
-
-        if (!invoiceResponse.IsSuccessStatusCode)
-        {
-            _logger.LogError("Invoice creation failed: {StatusCode} - {Error}", invoiceResponse.StatusCode, invoiceContent);
-            throw new HttpRequestException($"Invoice creation failed: {invoiceResponse.StatusCode} - {invoiceContent}");
-        }
-
-        var invoiceJson = JsonSerializer.Deserialize<TripletexResponseDto>(invoiceContent, new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        });
-
-        var invoiceId = invoiceJson?.Value?.Id ?? 0;
-        int orderId = 0;
-        if (invoiceJson?.Value?.Orders != null && invoiceJson.Value.Orders.Count > 0)
-        {
-            orderId = (int)invoiceJson.Value.Orders[0].Id;
-        }
-
-        if (invoiceId > 0)
-        {
-            _logger.LogInformation("Invoice already created with ID: {InvoiceId}, skipping generation from order.", invoiceId);
-        }
-        else if (orderId > 0)
-        {
-            invoiceId = await GenerateInvoiceFromOrderAsync(orderId, authHeader);
-        }
-        else
-        {
-            _logger.LogWarning("No order or invoice ID returned. Cannot proceed.");
-        }
-        
-        if (invoiceId == 0)
-        {
-            throw new Exception("Invoice ID could not be extracted from Tripletex response.");
-        }
-
-        _logger.LogInformation("Successfully created invoice with ID: {InvoiceId}", invoiceId);
-        
-        // Store invoice details in local DB first
-        await LogCreatedInvoiceDetails((int)invoiceId, authHeader);
-        
-        // Send the invoice
-        await SendInvoiceAsync((int)invoiceId, authHeader);
-
-        // Handle attachment upload if file is provided
-        if (!string.IsNullOrWhiteSpace(fileName) && fileBytes?.Length > 0)
-        {
-            _logger.LogInformation("Attempting to upload attachment for invoice {InvoiceId}", invoiceId);
-            
-            // Get the voucher ID from Tripletex API
-            var voucherId = await GetVoucherIdFromTripletex((int)invoiceId, authHeader);
-            
-            if (voucherId > 0)
-            {
-                _logger.LogInformation("Found voucher ID {VoucherId} for invoice {InvoiceId}", voucherId, invoiceId);
-                
-                var success = await UploadVoucherAttachmentAsync(voucherId, fileBytes, fileName, userId);
-                if (success)
+                if (!invoiceResponse.IsSuccessStatusCode)
                 {
-                    _logger.LogInformation("Attachment uploaded successfully for voucher {VoucherId}", voucherId);
-                    
-                    // Confirm the attachment was linked
-                    var confirmed = await ConfirmAttachmentLinkedAsync(voucherId);
-                    if (confirmed)
+                    _logger.LogError("Invoice creation failed: {StatusCode} - {Error}", invoiceResponse.StatusCode, invoiceContent);
+                    throw new HttpRequestException($"Invoice creation failed: {invoiceResponse.StatusCode} - {invoiceContent}");
+                }
+
+                var invoiceJson = JsonSerializer.Deserialize<TripletexResponseDto>(invoiceContent, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                var invoiceId = invoiceJson?.Value?.Id ?? 0;
+                _logger.LogInformation("✅ Successfully created invoice with ID: {InvoiceId}", invoiceId);
+
+                // Store invoice details in local DB
+                await LogCreatedInvoiceDetails((int)invoiceId, authHeader);
+
+                // Handle attachment upload if provided
+                if (!string.IsNullOrWhiteSpace(fileName) && fileBytes?.Length > 0)
+                {
+                    _logger.LogInformation("📎 Uploading attachment for invoice {InvoiceId} (file: {FileName}, size: {FileSize} bytes)",
+                        invoiceId, fileName, fileBytes.Length);
+
+                    var voucherId = await GetVoucherIdFromTripletex((int)invoiceId, authHeader);
+
+                    if (voucherId > 0)
                     {
-                        _logger.LogInformation("Attachment confirmed and linked to voucher {VoucherId}", voucherId);
+                        _logger.LogInformation("Found voucher ID {VoucherId} for invoice {InvoiceId}", voucherId, invoiceId);
+
+                        var success = await UploadVoucherAttachmentAsync(voucherId, fileBytes, fileName, userId);
+                        if (success)
+                        {
+                            _logger.LogInformation("✅ Attachment uploaded successfully for voucher {VoucherId}", voucherId);
+
+                            // Wait a moment for the attachment to be processed
+                            await Task.Delay(1000);
+
+                            // Verify the attachment was properly linked
+                            var verified = await VerifyInvoiceAttachmentAsync((int)invoiceId);
+                            if (verified)
+                            {
+                                _logger.LogInformation("✅ Attachment verified and linked to invoice {InvoiceId}", invoiceId);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("⚠️ Attachment upload succeeded but verification failed for invoice {InvoiceId}", invoiceId);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogError("❌ Failed to upload attachment for voucher {VoucherId}", voucherId);
+                        }
                     }
                     else
                     {
-                        _logger.LogWarning("Upload succeeded but attachment not confirmed for voucher {VoucherId}", voucherId);
+                        _logger.LogError("❌ Could not retrieve voucher ID for invoice {InvoiceId}. Cannot upload attachment.", invoiceId);
                     }
+                }
+
+                // Check invoice status and handle approval/sending if needed
+                await HandleInvoicePostProcessing((int)invoiceId, authHeader);
+
+                return (int)invoiceId;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error creating invoice in Tripletex");
+                throw;
+            }
+        }
+
+
+
+        private async Task<bool> ApproveInvoiceAsync(int invoiceId, string authHeader)
+        {
+            try
+            {
+                var url = $"https://api-test.tripletex.tech/v2/invoice/{invoiceId}/approve";
+                var request = new HttpRequestMessage(HttpMethod.Post, url);
+                request.Headers.Add("Authorization", authHeader);
+
+                var response = await _httpClient.SendAsync(request);
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to approve invoice {InvoiceId}. Status: {StatusCode} - {Body}",
+                        invoiceId, response.StatusCode, content);
+                    return false;
+                }
+
+                _logger.LogInformation("✅ Invoice {InvoiceId} approved successfully", invoiceId);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error approving invoice {InvoiceId}", invoiceId);
+                return false;
+            }
+        }
+        public async Task<bool> VerifyInvoiceAttachmentAsync(int invoiceId)
+        {
+            try
+            {
+                var authHeader = await _tokenService.GetAuthorizationAsync();
+
+                // Get the voucher ID first
+                var voucherId = await GetVoucherIdFromTripletex(invoiceId, authHeader);
+                if (voucherId == 0)
+                {
+                    _logger.LogWarning("No voucher found for invoice {InvoiceId}", invoiceId);
+                    return false;
+                }
+
+                // Check if voucher has attachment
+                var url = $"https://api-test.tripletex.tech/v2/ledger/voucher/{voucherId}";
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("Authorization", authHeader);
+
+                var response = await _httpClient.SendAsync(request);
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Failed to fetch voucher {VoucherId}: {StatusCode} - {Content}",
+                        voucherId, response.StatusCode, content);
+                    return false;
+                }
+
+                var jsonDoc = JsonDocument.Parse(content);
+                if (jsonDoc.RootElement.TryGetProperty("value", out var valueElement))
+                {
+                    // Check for attachment
+                    if (valueElement.TryGetProperty("attachment", out var attachmentElement) &&
+                        attachmentElement.TryGetProperty("id", out var attachmentIdElement))
+                    {
+                        var attachmentId = attachmentIdElement.GetInt32();
+                        _logger.LogInformation("Attachment found for invoice {InvoiceId}: Attachment ID = {AttachmentId}",
+                            invoiceId, attachmentId);
+
+
+                        _logger.LogDebug("Voucher {VoucherId} details: {VoucherData}", voucherId, content);
+
+                        return true;
+                    }
+                }
+
+                _logger.LogWarning("❌ No attachment found for invoice {InvoiceId} (voucher {VoucherId})", invoiceId, voucherId);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error verifying attachment for invoice {InvoiceId}", invoiceId);
+                return false;
+            }
+        }
+
+
+        public async Task<object> GetInvoiceAttachmentDetailsAsync(int invoiceId)
+        {
+            try
+            {
+                var authHeader = await _tokenService.GetAuthorizationAsync();
+                var voucherId = await GetVoucherIdFromTripletex(invoiceId, authHeader);
+
+                if (voucherId == 0)
+                {
+                    return new { success = false, message = "No voucher found for invoice" };
+                }
+
+                var url = $"https://api-test.tripletex.tech/v2/ledger/voucher/{voucherId}";
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("Authorization", authHeader);
+
+                var response = await _httpClient.SendAsync(request);
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return new { success = false, message = $"API error: {response.StatusCode}" };
+                }
+
+                var jsonDoc = JsonDocument.Parse(content);
+                if (jsonDoc.RootElement.TryGetProperty("value", out var valueElement))
+                {
+                    var result = new
+                    {
+                        success = true,
+                        invoiceId = invoiceId,
+                        voucherId = voucherId,
+                        hasDocument = valueElement.TryGetProperty("document", out var docEl) && docEl.TryGetProperty("id", out _),
+                        hasAttachment = valueElement.TryGetProperty("attachment", out var attachEl) && attachEl.TryGetProperty("id", out _),
+                        documentId = valueElement.TryGetProperty("document", out var docElement) && docElement.TryGetProperty("id", out var docIdEl) ? docIdEl.GetInt32() : (int?)null,
+                        attachmentId = valueElement.TryGetProperty("attachment", out var attElement) && attElement.TryGetProperty("id", out var attIdEl) ? attIdEl.GetInt32() : (int?)null,
+                        rawData = JsonSerializer.Serialize(valueElement, new JsonSerializerOptions { WriteIndented = true })
+                    };
+
+                    return result;
+                }
+
+                return new { success = false, message = "Invalid response format" };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting attachment details for invoice {InvoiceId}", invoiceId);
+                return new { success = false, message = ex.Message };
+            }
+        }
+
+        private async Task HandleInvoicePostProcessing(int invoiceId, string authHeader)
+        {
+            try
+            {
+                var invoiceDetailsUrl = $"https://api-test.tripletex.tech/v2/invoice/{invoiceId}";
+                var invoiceDetailsRequest = new HttpRequestMessage(HttpMethod.Get, invoiceDetailsUrl);
+                invoiceDetailsRequest.Headers.Add("Authorization", authHeader);
+                var detailsResponse = await _httpClient.SendAsync(invoiceDetailsRequest);
+                var detailsContent = await detailsResponse.Content.ReadAsStringAsync();
+
+                bool isCharged = false;
+                bool isApproved = false;
+
+                if (detailsResponse.IsSuccessStatusCode)
+                {
+                    var jsonDoc = JsonDocument.Parse(detailsContent);
+                    if (jsonDoc.RootElement.TryGetProperty("value", out var valueEl))
+                    {
+                        isCharged = valueEl.TryGetProperty("isCharged", out var chargedEl) && chargedEl.GetBoolean();
+                        isApproved = valueEl.TryGetProperty("isApproved", out var approvedEl) && approvedEl.GetBoolean();
+
+                        _logger.LogInformation("Invoice {InvoiceId} status: Charged={IsCharged}, Approved={IsApproved}",
+                            invoiceId, isCharged, isApproved);
+                    }
+                }
+
+                // Only try to approve/send if the invoice is not already charged
+                if (!isCharged)
+                {
+                    if (!isApproved)
+                    {
+                        var approved = await ApproveInvoiceAsync(invoiceId, authHeader);
+                        if (approved)
+                        {
+                            _logger.LogInformation("✅ Invoice {InvoiceId} approved successfully", invoiceId);
+                        }
+                    }
+
+                    // Send the invoice
+                    await SendInvoiceAsync(invoiceId, authHeader);
                 }
                 else
                 {
-                    _logger.LogError("Failed to upload attachment for voucher {VoucherId}", voucherId);
+                    _logger.LogInformation("ℹ️ Invoice {InvoiceId} is already charged. Skipping approval and send.", invoiceId);
                 }
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogError("Could not retrieve voucher ID for invoice {InvoiceId}. Cannot upload attachment.", invoiceId);
+                _logger.LogError(ex, "Error in post-processing for invoice {InvoiceId}", invoiceId);
             }
         }
-        else
-        {
-            _logger.LogInformation("No attachment provided for invoice {InvoiceId}, skipping upload", invoiceId);
-        }
-
-        return (int)invoiceId;
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error creating invoice in Tripletex");
-        throw;
-    }
-}
 
         private async Task<int> GetVoucherIdFromTripletex(int invoiceId, string authHeader)
-{
-    var url = $"https://api-test.tripletex.tech/v2/invoice/{invoiceId}";
-    var request = new HttpRequestMessage(HttpMethod.Get, url);
-    request.Headers.Add("Authorization", authHeader);
-
-    var response = await _httpClient.SendAsync(request);
-    var content = await response.Content.ReadAsStringAsync();
-
-    if (!response.IsSuccessStatusCode)
-    {
-        _logger.LogWarning("Could not fetch voucher for invoice {InvoiceId}. Response: {StatusCode} - {Content}", invoiceId, response.StatusCode, content);
-        return 0;
-    }
-
-    try
-    {
-        var doc = JsonDocument.Parse(content);
-        if (doc.RootElement.TryGetProperty("value", out var value) &&
-            value.TryGetProperty("voucher", out var voucher) &&
-            voucher.TryGetProperty("id", out var voucherIdElement))
         {
-            return voucherIdElement.GetInt32();
-        }
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error parsing voucherId from Tripletex invoice response for invoice {InvoiceId}", invoiceId);
-    }
+            var url = $"https://api-test.tripletex.tech/v2/invoice/{invoiceId}";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("Authorization", authHeader);
 
-    return 0;
-}
+            var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
 
-        public void GenerateInvoicePdfFile()
-        {
-            string invoicePdfPath = Path.Combine(AppContext.BaseDirectory, "invoice.pdf");
-            InvoicePdfGenerator.GenerateInvoicePdf(invoicePdfPath);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Could not fetch voucher for invoice {InvoiceId}. Response: {StatusCode} - {Content}", invoiceId, response.StatusCode, content);
+                return 0;
+            }
+
+            try
+            {
+                var doc = JsonDocument.Parse(content);
+                if (doc.RootElement.TryGetProperty("value", out var value) &&
+                    value.TryGetProperty("voucher", out var voucher) &&
+                    voucher.TryGetProperty("id", out var voucherIdElement))
+                {
+                    return voucherIdElement.GetInt32();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error parsing voucherId from Tripletex invoice response for invoice {InvoiceId}", invoiceId);
+            }
+
+            return 0;
         }
         public async Task<int> CreateInvoiceWithAttachmentAsync(TripletexInvoiceCreateDto dto)
         {
-            GenerateInvoicePdfFile();
-            string binFolder = AppContext.BaseDirectory;
-            string invoicePdfPath = Path.Combine(binFolder, "invoice.pdf");
+            string pdfPath = Path.Combine(AppContext.BaseDirectory, "invoice.pdf");
 
-            InvoicePdfGenerator.GenerateInvoicePdf(invoicePdfPath);
-            var fileInfo = new FileInfo(invoicePdfPath);
-            _logger.LogInformation("PDF generated at {Path} with size {Length} bytes", invoicePdfPath, fileInfo.Length);
-
-            if (fileInfo.Length == 0)
+            if (!File.Exists(pdfPath))
             {
-                _logger.LogError("PDF file is empty after generation!");
+                _logger.LogError("Fant ikke PDF-filen: {Path}", pdfPath);
+                throw new FileNotFoundException("Test-PDF ikke funnet", pdfPath);
             }
-            byte[] fileBytes = await File.ReadAllBytesAsync(invoicePdfPath);
 
+            byte[] pdfBytes = await File.ReadAllBytesAsync(pdfPath);
+            string fileName = "invoice.pdf";
 
-            int createdInvoiceId = await CreateInvoiceInTripletexAsync(dto, fileBytes, "invoice.pdf", "system");
+            _logger.LogInformation("Leste PDF fra disk, størrelse: {Size} bytes", pdfBytes.Length);
 
-            return createdInvoiceId;
+            return await CreateInvoiceInTripletexAsync(dto, pdfBytes, fileName, "system");
         }
+
 
         private async Task SendInvoiceAsync(int invoiceId, string authHeader)
         {
@@ -378,7 +538,7 @@ namespace backend.Services
 
             var jsonDoc = JsonDocument.Parse(content);
             var invoiceId = jsonDoc.RootElement.GetProperty("value").GetProperty("id").GetInt32();
-            _logger.LogInformation("✅ Invoice {InvoiceId} created from Order {OrderId}", invoiceId, orderId);
+            _logger.LogInformation("Invoice {InvoiceId} created from Order {OrderId}", invoiceId, orderId);
             return invoiceId;
         }
 
@@ -636,144 +796,52 @@ namespace backend.Services
                     await _db.SaveChangesAsync();
                 }
 
-                public async Task<bool> UploadVoucherAttachmentAsync(int voucherId, byte[] fileContent, string fileName, string userId)
-{
-    try
-    {
-        // Validate inputs
-        if (fileContent == null || fileContent.Length == 0)
+                public async Task<bool> UploadVoucherAttachmentAsync(int voucherId, byte[] fileBytes, string fileName, string userId)
+                {
+                    var authHeader = await _tokenService.GetAuthorizationAsync();
+
+                    using var form = new MultipartFormDataContent();
+
+                    var fileContent = new ByteArrayContent(fileBytes);
+                    fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/pdf");
+
+                    form.Add(fileContent, "file", fileName);
+
+
+                    form.Add(fileContent, "file", fileName);
+
+                    var request = new HttpRequestMessage(HttpMethod.Post, $"https://api-test.tripletex.tech/v2/ledger/voucher/{voucherId}/attachment");
+                    request.Headers.Add("Authorization", authHeader);
+                    request.Content = form;
+
+                    var response = await _httpClient.SendAsync(request);
+                    var body = await response.Content.ReadAsStringAsync();
+
+                    _logger.LogInformation("📎 Tripletex response: {Code} - {Body}", response.StatusCode, body);
+
+                    return response.IsSuccessStatusCode;
+                }
+
+
+        private string GetContentTypeFromFileName(string fileName)
         {
-            _logger.LogWarning("No file content provided for voucher {VoucherId}", voucherId);
-            return false;
-        }
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
 
-        if (string.IsNullOrWhiteSpace(fileName))
-        {
-            _logger.LogWarning("No filename provided for voucher {VoucherId}", voucherId);
-            return false;
-        }
-
-        // Optional: Add file size validation (e.g., max 10MB)
-        const int maxFileSizeBytes = 10 * 1024 * 1024; // 10MB
-        if (fileContent.Length > maxFileSizeBytes)
-        {
-            _logger.LogWarning("File too large for voucher {VoucherId}: {FileSize} bytes", voucherId, fileContent.Length);
-            return false;
-        }
-
-        var authHeader = await _tokenService.GetAuthorizationAsync();
-        var url = $"https://api-test.tripletex.tech/v2/ledger/voucher/{voucherId}/attachment";
-
-        using var formContent = new MultipartFormDataContent();
-        
-        // Create file content with proper content type detection
-        var fileContentContent = new ByteArrayContent(fileContent);
-        
-        // Try to detect content type based on file extension
-        var contentType = GetContentTypeFromFileName(fileName);
-        fileContentContent.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
-
-        // Add the file to the form with the correct field name
-        formContent.Add(fileContentContent, "file", fileName);
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, url);
-        request.Headers.Add("Authorization", authHeader);
-        request.Content = formContent;
-
-        _logger.LogInformation("Uploading attachment to Tripletex for Voucher ID: {VoucherId}, File: {FileName}, Size: {FileSize} bytes", 
-            voucherId, fileName, fileContent.Length);
-
-        var response = await _httpClient.SendAsync(request);
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogError("Failed to upload attachment to voucher {VoucherId}. Status: {StatusCode}, Response: {Response}",
-                voucherId, response.StatusCode, responseBody);
-
-            // Save to log table
-            var logEntry = new LogConnection
+            return extension switch
             {
-                UserId = userId,
-                Title = "Failed to upload attachment",
-                Status = "Failed",
-                Error = $"HTTP {response.StatusCode}: {responseBody}",
-                FromEndpoint = "WI",
-                ToEndpoint = "Tripletex",
-                Date = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                ".pdf" => "application/pdf",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".doc" => "application/msword",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".xls" => "application/vnd.ms-excel",
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".txt" => "text/plain",
+                ".csv" => "text/csv",
+                _ => "application/octet-stream"
             };
-            _db.LogConnections.Add(logEntry);
-            await _db.SaveChangesAsync();
-
-            return false;
         }
-
-        _logger.LogInformation("Successfully uploaded attachment for Voucher ID {VoucherId}. Response: {Response}", 
-            voucherId, responseBody);
-
-        // Optional: Log successful upload
-        var successLogEntry = new LogConnection
-        {
-            UserId = userId,
-            Title = "Attachment uploaded successfully",
-            Status = "Success",
-            Error = null,
-            FromEndpoint = "WI",
-            ToEndpoint = "Tripletex",
-            Date = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-        _db.LogConnections.Add(successLogEntry);
-        await _db.SaveChangesAsync();
-
-        return true;
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Exception occurred while uploading attachment to Tripletex for Voucher ID {VoucherId}", voucherId);
-
-        var logEntry = new LogConnection
-        {
-            UserId = userId,
-            Title = "Exception during attachment upload",
-            Status = "Exception",
-            Error = ex.ToString(),
-            FromEndpoint = "WI",
-            ToEndpoint = "Tripletex",
-            Date = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        _db.LogConnections.Add(logEntry);
-        await _db.SaveChangesAsync();
-
-        return false;
-    }
-}
-
-private string GetContentTypeFromFileName(string fileName)
-{
-    var extension = Path.GetExtension(fileName).ToLowerInvariant();
-    
-    return extension switch
-    {
-        ".pdf" => "application/pdf",
-        ".jpg" or ".jpeg" => "image/jpeg",
-        ".png" => "image/png",
-        ".gif" => "image/gif",
-        ".doc" => "application/msword",
-        ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ".xls" => "application/vnd.ms-excel",
-        ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        ".txt" => "text/plain",
-        ".csv" => "text/csv",
-        _ => "application/octet-stream"
-    };
-}
 
         public async Task<bool> ConfirmAttachmentLinkedAsync(int voucherId)
         {
@@ -821,7 +889,6 @@ private string GetContentTypeFromFileName(string fileName)
 
         public async Task<int> CreateInvoiceInTripletexAsync(TripletexInvoiceCreateDto dto)
         {
-            // Try to load file from disk for testing (replace with real source in production)
             string pdfPath = Path.Combine(AppContext.BaseDirectory, "invoice.pdf");
             if (!File.Exists(pdfPath))
             {

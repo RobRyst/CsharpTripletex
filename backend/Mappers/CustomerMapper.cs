@@ -8,7 +8,7 @@ namespace backend.Mappers
     {
         public static CustomerModel ToModel(CustomerDto dto) => new CustomerModel
         {
-            Id = dto.Id, // This will be 0 if coming from Tripletex only
+            Id = dto.Id,
             TripletexId = dto.TripletexId,
             Name = dto.Name ?? string.Empty,
             Email = dto.Email ?? string.Empty,

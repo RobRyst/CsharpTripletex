@@ -85,6 +85,9 @@ namespace backend.Dtos
         public TripletexCustomerRefDto Customer { get; set; } = default!;
         public string InvoiceDate { get; set; } = default!;
         public string InvoiceDueDate { get; set; } = default!;
+        public decimal Amount { get; set; }
+        public string Description { get; set; } = "Consulting services";
+        public bool IsValid => Amount > 0 && Customer?.Id > 0;
         public TripletexCurrencyRefDto Currency { get; set; } = new TripletexCurrencyRefDto { Id = 1 };
         public List<TripletexOrderDto> Orders { get; set; } = new();
     }
@@ -114,4 +117,16 @@ namespace backend.Dtos
     {
         public int Id { get; set; }
     }
+}
+
+public class TripletexSaleOrderResponse
+{
+    public SaleOrderResponseValue Value { get; set; }
+}
+
+public class SaleOrderResponseValue
+{
+    public int Id { get; set; }
+    public string OrderDate { get; set; }
+    public double Amount { get; set; }
 }
