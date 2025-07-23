@@ -29,6 +29,7 @@ namespace backend.Services
                     InvoiceCreated = dto.InvoiceCreated,
                     InvoiceDueDate = dto.InvoiceDueDate,
                     CustomerId = dto.CustomerId,
+                    VoucherId = dto.VoucherId
                 };
 
                 _db.Invoices.Add(invoice);

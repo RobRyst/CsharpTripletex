@@ -6,6 +6,7 @@ using backend.Infrastructure.Data;
 using backend.Mappers;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using System.Net.Http.Headers;
 
 namespace backend.Services
 {
@@ -15,7 +16,6 @@ namespace backend.Services
         private readonly HttpClient _httpClient;
         private readonly ITokenService _tokenService;
         private readonly ILogger<SaleOrderService> _logger;
-
         public SaleOrderService(AppDbContext context, HttpClient httpClient, ITokenService tokenService, ILogger<SaleOrderService> logger)
         {
             _context = context;
@@ -40,23 +40,23 @@ namespace backend.Services
                     {
                         var order = SaleOrderMapper.ToEntity(dto);
                         _context.Saleorders.Add(order);
-                        _logger.LogInformation("Added new order: {OrderNumber}", dto.Number);
+                        _logger.LogInformation("New order added: {OrderNumber}", dto.Number);
                     }
                     else
                     {
                         SaleOrderMapper.UpdateEntity(existing, dto);
-                        _logger.LogInformation("Updated existing order: {OrderNumber}", dto.Number);
+                        _logger.LogInformation("Existing order updated: {OrderNumber}", dto.Number);
                     }
                 }
 
-                _logger.LogInformation("Saving changes to database...");
+                _logger.LogInformation("Saving changes to database");
                 await _context.SaveChangesAsync();
                 await Task.Delay(2000);
-                _logger.LogInformation("Save successful.");
+                _logger.LogInformation("Save successful");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during sales order sync");
+                _logger.LogError(ex, "Error during order sync");
                 throw;
             }
         }
@@ -67,7 +67,7 @@ namespace backend.Services
             var fromDate = DateTime.UtcNow.AddDays(-365).ToString("yyyy-MM-dd");
             var toDate = DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd");
 
-            var url = $"https://api.tripletex.tech/v2/order?orderDateFrom={fromDate}&orderDateTo={toDate}&fields=id,number,status,orderDate,customer(id,name,email)";
+            var url = $"https://api-test.tripletex.tech/v2/order?orderDateFrom={fromDate}&orderDateTo={toDate}&fields=id,number,status,orderDate,customer(id,name,email)";
 
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", authHeader);
@@ -79,8 +79,8 @@ namespace backend.Services
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError("Error fetching sales orders: {StatusCode} - {Error}", response.StatusCode, responseContent);
-                throw new HttpRequestException($"Sales order fetch failed: {response.StatusCode} - {responseContent}");
+                _logger.LogError("Error getting sale orders: {StatusCode} - {Error}", response.StatusCode, responseContent);
+                throw new HttpRequestException($"Failed getting sale order: {response.StatusCode} - {responseContent}");
             }
 
             var options = new JsonSerializerOptions
@@ -150,171 +150,120 @@ namespace backend.Services
         }
 
         public async Task<SaleOrderDto> CreateSaleOrderAsync(TripletexCreateSaleOrder dto)
-{
-    _logger.LogInformation("Received DTO with CustomerId: {CustomerId}", dto.CustomerId);
-
-    var customer = await _context.Customers.FirstOrDefaultAsync(c => c.Id == dto.CustomerId);
-    if (customer == null || customer.TripletexId == null || customer.TripletexId == 0)
-        throw new InvalidOperationException($"Customer with TripletexId {dto.CustomerId} not found or missing TripletexId.");
-
-    if (!DateOnly.TryParse(dto.OrderDate, out var parsedOrderDate))
-        throw new FormatException($"Invalid OrderDate format: '{dto.OrderDate}'");
-
-    var payload = new
-    {
-        customer = new { id = customer.TripletexId },
-        orderDate = parsedOrderDate.ToString("yyyy-MM-dd"),
-        deliveryDate = parsedOrderDate.ToString("yyyy-MM-dd"),
-        isPrioritizeAmountsIncludingVat = false,
-        orderLines = new[]
         {
-            new {
-                product = new { id = 69691388 },
-                description = "Consulting services",
-                count = 1,
-                unitPriceExcludingVatCurrency = dto.Amount,
-                vatType = new { id = 3 }
+            _logger.LogInformation("Received DTO with CustomerId: {CustomerId}", dto.CustomerId);
+
+            var customer = await _context.Customers.FirstOrDefaultAsync(c => c.Id == dto.CustomerId);
+            if (customer == null || customer.TripletexId == null || customer.TripletexId == 0)
+                throw new InvalidOperationException($"Customer with TripletexId {dto.CustomerId} not found or missing TripletexId.");
+
+            if (!DateOnly.TryParse(dto.OrderDate, out var parsedOrderDate))
+                throw new FormatException($"Invalid OrderDate format: '{dto.OrderDate}'");
+
+            var invoicePayload = new
+            {
+                customer = new { id = customer.TripletexId },
+                invoiceDate = parsedOrderDate.ToString("yyyy-MM-dd"),
+                invoiceDueDate = parsedOrderDate.AddDays(14).ToString("yyyy-MM-dd"),
+                currency = new { id = 1 },
+                orders = new[]
+                {
+                    new
+                    {
+                        orderDate = parsedOrderDate.ToString("yyyy-MM-dd"),
+                        deliveryDate = parsedOrderDate.ToString("yyyy-MM-dd"),
+                        customer = new { id = customer.TripletexId },
+                        invoicesDueIn = 14,
+                        invoicesDueInType = "DAYS",
+                        isShowOpenPostsOnInvoices = false,
+                        orderLineSorting = "PRODUCT",
+                        isPrioritizeAmountsIncludingVat = false,
+                        orderLines = new[]
+                        {
+                            new
+                            {
+                                product = new { id = 69691388 },
+                                description = "Consulting services",
+                                count = 1,
+                                unitPriceExcludingVatCurrency = dto.Amount,
+                                vatType = new { id = 3 }
+                            }
+                        }
+                    }
+                }
+            };
+
+            var authHeader = await _tokenService.GetAuthorizationAsync();
+
+            var invoiceRequest = new HttpRequestMessage(HttpMethod.Post, "https://api-test.tripletex.tech/v2/invoice")
+            {
+                Content = JsonContent.Create(invoicePayload)
+            };
+            invoiceRequest.Headers.Add("Authorization", authHeader);
+            invoiceRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            var invoiceResponse = await _httpClient.SendAsync(invoiceRequest);
+            var invoiceContent = await invoiceResponse.Content.ReadAsStringAsync();
+
+            if (!invoiceResponse.IsSuccessStatusCode)
+            {
+                _logger.LogError("Invoice creation failed: {StatusCode} - {Content}", invoiceResponse.StatusCode, invoiceContent);
+                throw new HttpRequestException($"Failed to create invoice: {invoiceResponse.StatusCode}");
             }
+
+            var invoiceResult = JsonSerializer.Deserialize<TripletexInvoiceResponse>(invoiceContent, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            var invoiceData = invoiceResult?.Value;
+            if (invoiceData == null || invoiceData.Orders == null || invoiceData.Orders.Count == 0)
+                throw new Exception("Invoice or order data missing from Tripletex response.");
+
+            var orderId = invoiceData.Orders.First().Id;
+
+            var order = new SaleOrder
+            {
+                TripletexId = (int?)orderId,
+                Number = dto.Number,
+                Status = "Created",
+                Amount = dto.Amount,
+                OrderDate = parsedOrderDate,
+                CustomerId = customer.Id
+            };
+
+            _context.Saleorders.Add(order);
+
+            var invoice = new Invoice
+            {
+                TripletexId = (int)invoiceData.Id,
+                Status = "Created",
+                Total = invoiceData.Amount,
+                InvoiceCreated = DateOnly.FromDateTime(DateTime.UtcNow),
+                InvoiceDate = DateOnly.Parse(invoiceData.InvoiceDate),
+                InvoiceDueDate = DateOnly.Parse(invoiceData.InvoiceDueDate),
+                DueDate = DateOnly.Parse(invoiceData.InvoiceDueDate),
+                Currency = "NOK",
+                CustomerId = customer.Id,
+                CustomerTripletexId = customer.TripletexId
+            };
+
+            _context.Invoices.Add(invoice);
+            await _context.SaveChangesAsync();
+            await Task.Delay(2000);
+
+            return new SaleOrderDto
+            {
+                Id = order.Id,
+                Number = order.Number,
+                Status = order.Status,
+                OrderDate = order.OrderDate.ToDateTime(TimeOnly.MinValue),
+                Amount = order.Amount,
+                CustomerId = order.CustomerId,
+                CustomerName = customer.Name
+            };
         }
-    };
 
-    var authHeader = await _tokenService.GetAuthorizationAsync();
-
-    // Step 1: Create Sale Order in Tripletex
-    var orderRequest = new HttpRequestMessage(HttpMethod.Post, "https://api-test.tripletex.tech/v2/order")
-    {
-        Content = JsonContent.Create(payload)
-    };
-    orderRequest.Headers.Add("Authorization", authHeader);
-    orderRequest.Headers.Add("Accept", "application/json");
-
-    var orderResponseHttp = await _httpClient.SendAsync(orderRequest);
-    var orderContent = await orderResponseHttp.Content.ReadAsStringAsync();
-
-    if (!orderResponseHttp.IsSuccessStatusCode)
-    {
-        _logger.LogError("Tripletex order creation failed: {Response}", orderContent);
-        throw new HttpRequestException($"Failed to create order: {orderContent}");
-    }
-
-    var tripletexResponse = JsonSerializer.Deserialize<TripletexOrderResponse>(orderContent, new JsonSerializerOptions
-    {
-        PropertyNameCaseInsensitive = true
-    });
-
-    if (tripletexResponse?.Value?.Id == null)
-        throw new Exception("Tripletex response missing order ID.");
-
-    var tripletexId = tripletexResponse.Value.Id;
-    _logger.LogInformation("Tripletex order ID: {TripletexId}", tripletexId);
-
-    // Step 2: Save SaleOrder locally
-    var order = new SaleOrder
-    {
-        TripletexId = (int)tripletexId,
-        Number = dto.Number,
-        Status = "Created",
-        Amount = dto.Amount,
-        OrderDate = parsedOrderDate,
-        CustomerId = customer.Id
-    };
-    _context.Saleorders.Add(order);
-    await _context.SaveChangesAsync();
-    await Task.Delay(2000);
-
-    _logger.LogInformation("SaleOrder saved locally with Tripletex ID {TripletexId}", tripletexId);
-
-    // Step 3: Check if Tripletex already created a preliminary invoice
-    var orderGetRequest = new HttpRequestMessage(HttpMethod.Get, $"https://api-test.tripletex.tech/v2/order/{tripletexId}");
-    orderGetRequest.Headers.Add("Authorization", authHeader);
-    orderGetRequest.Headers.Add("Accept", "application/json");
-
-    var orderGetResponse = await _httpClient.SendAsync(orderGetRequest);
-    var orderGetContent = await orderGetResponse.Content.ReadAsStringAsync();
-
-    if (!orderGetResponse.IsSuccessStatusCode)
-    {
-        _logger.LogWarning("Failed to retrieve order to check for existing invoice: {Response}", orderGetContent);
-    }
-
-    var tripletexOrderResponse = JsonSerializer.Deserialize<TripletexOrderGetResponse>(orderGetContent, new JsonSerializerOptions
-    {
-        PropertyNameCaseInsensitive = true
-    });
-
-TripletexInvoiceResponse? invoiceResponse = null;
-
-// Retry up to 3 times
-for (int attempt = 1; attempt <= 3; attempt++)
-{
-    var invoiceRequest = new HttpRequestMessage(
-        HttpMethod.Post,
-        $"https://api-test.tripletex.tech/v2/order/{tripletexId}/invoice?sendInvoice=true")
-    {
-        Content = JsonContent.Create(new { }) // empty payload
-    };
-    invoiceRequest.Headers.Add("Authorization", authHeader);
-    invoiceRequest.Headers.Add("Accept", "application/json");
-
-    var invoiceHttpResponse = await _httpClient.SendAsync(invoiceRequest);
-    var invoiceContent = await invoiceHttpResponse.Content.ReadAsStringAsync();
-
-    if (invoiceHttpResponse.IsSuccessStatusCode)
-    {
-        invoiceResponse = JsonSerializer.Deserialize<TripletexInvoiceResponse>(invoiceContent, new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        });
-
-        _logger.LogInformation("Invoice successfully created and finalized for order {OrderId} on attempt {Attempt}", tripletexId, attempt);
-        _logger.LogInformation("Invoice response content: {Content}", invoiceContent);
-        break;
-    }
-
-    if (attempt < 3)
-    {
-        _logger.LogWarning("Invoice creation attempt {Attempt} failed, retrying in {Delay}s... Error: {Error}", attempt, attempt, invoiceContent);
-        await Task.Delay(1000 * attempt); // 1s, 2s, 3s...
-    }
-    else
-    {
-        _logger.LogError("Failed to finalize invoice after 3 attempts: {Error}", invoiceContent);
-        throw new HttpRequestException($"Failed to finalize invoice: {invoiceHttpResponse.StatusCode}");
-    }
-}
-    // Step 4: Save invoice locally if it exists
-    if (invoiceResponse?.Value != null)
-    {
-        var invoice = new Invoice
-        {
-            TripletexId = (int)invoiceResponse.Value.Id,
-            Status = "Created",
-            Total = invoiceResponse.Value.Amount,
-            InvoiceCreated = DateOnly.FromDateTime(DateTime.UtcNow),
-            InvoiceDate = DateOnly.Parse(invoiceResponse.Value.InvoiceDate),
-            InvoiceDueDate = DateOnly.Parse(invoiceResponse.Value.InvoiceDueDate),
-            DueDate = DateOnly.Parse(invoiceResponse.Value.InvoiceDueDate),
-            Currency = "NOK",
-            CustomerId = order.CustomerId,
-            CustomerTripletexId = customer.TripletexId
-        };
-
-        _context.Invoices.Add(invoice);
-        await _context.SaveChangesAsync();
-        await Task.Delay(2000);
-    }
-
-    return new SaleOrderDto
-    {
-        Id = order.Id,
-        Number = order.Number,
-        Status = order.Status,
-        OrderDate = order.OrderDate.ToDateTime(TimeOnly.MinValue),
-        Amount = order.Amount,
-        CustomerId = order.CustomerId,
-        CustomerName = customer.Name
-    };
-}
         public async Task ImportSaleOrdersAsync()
         {
             await SyncSaleOrdersFromTripletexAsync();

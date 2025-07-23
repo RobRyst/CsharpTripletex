@@ -11,6 +11,7 @@ namespace backend.Dtos
         public int CustomerId { get; set; }
         public string? Name { get; set; }
         public string? Email { get; set; }
+        public int? VoucherId { get; set; }
     }
 
     public class InvoiceListResponse

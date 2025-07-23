@@ -70,6 +70,51 @@ namespace backend.Controllers
             }
         }
 
+        [HttpPost("with-attachment-json")]
+        public async Task<IActionResult> CreateInvoiceWithBase64([FromBody] InvoiceWithBase64Dto dto)
+        {
+            try
+            {
+                if (dto.Invoice?.Customer?.Id <= 0)
+                    return BadRequest(new { error = "Valid Tripletex customer ID is required" });
+
+                if (string.IsNullOrWhiteSpace(dto.FileBase64))
+                    return BadRequest(new { error = "Base64 file data is required" });
+
+                byte[] fileBytes;
+                try
+                {
+                    fileBytes = Convert.FromBase64String(dto.FileBase64);
+                }
+                catch (FormatException ex)
+                {
+                    _logger.LogError("Invalid base64 file content: {Snippet}", dto.FileBase64?.Substring(0, Math.Min(20, dto.FileBase64.Length)));
+                    return BadRequest(new
+                    {
+                        error = "Invalid base64 file format",
+                        detail = ex.Message
+                    });
+                }
+
+                var tripletexId = await _invoiceService.CreateInvoiceInTripletexAsync(
+                    dto.Invoice,
+                    fileBytes,
+                    dto.FileName,
+                    dto.UserId
+                );
+
+                return Ok(new { message = "Invoice created and attachment uploaded", tripletexId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating invoice with base64 attachment");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
+
+        
+
         [HttpPost("sync")]
         public async Task<IActionResult> SyncInvoices()
         {

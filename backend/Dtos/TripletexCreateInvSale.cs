@@ -23,9 +23,7 @@ namespace backend.Dtos
     public class TripletexOrderLineDto
     {
         public string Description { get; set; } = string.Empty;
-
         public decimal Count { get; set; }
-
         public decimal UnitPriceExcludingVatCurrency { get; set; }
     }
 
@@ -55,6 +53,7 @@ namespace backend.Dtos
         public string? InvoiceDate { get; set; }
         public string? InvoiceDueDate { get; set; }
         public decimal Amount { get; set; }
+        public string Description { get; set; } = "Consulting services";
         public CustomerRef? Customer { get; set; }
         public List<OrderRef>? Orders { get; set; }
     }
@@ -97,7 +96,18 @@ namespace backend.Dtos
 
     public class TripletexResponseDto
     {
-        public TripletexInvoiceDto? Value { get; set; }
+        public TripletexInvoiceValue? Value { get; set; }
+    }
+
+    public class InvoiceValueDto
+    {
+        public int Id { get; set; }
+        public List<OrderDto> Orders { get; set; } = new();
+    }
+
+    public class OrderDto
+    {
+        public int Id { get; set; }
     }
 
     public class TripletexInvoiceDto

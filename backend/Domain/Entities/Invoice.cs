@@ -21,8 +21,9 @@ namespace backend.Domain.Entities
 
     public DateOnly DueDate { get; set; }
 
-    [MaxLength(10)]
     public string Currency { get; set; } = "NOK";
+
+    public int? VoucherId { get; set; }
 
     public int CustomerTripletexId { get; set; }
 

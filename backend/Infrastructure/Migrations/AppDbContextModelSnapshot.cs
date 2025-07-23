@@ -110,7 +110,9 @@ namespace backend.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("TripletexId")
-                        .IsRequired()
+                        .HasColumnType("int");
+
+                    b.Property<int?>("VoucherId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -151,7 +153,6 @@ namespace backend.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<int?>("TripletexId")
-                        .IsRequired()
                         .HasColumnType("int");
 
                     b.HasKey("Id");

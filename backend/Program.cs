@@ -8,6 +8,10 @@ using backend.Repository;
 
 var builder = WebApplication.CreateBuilder(args);
 
+string invoicePdfPath = Path.Combine(AppContext.BaseDirectory, "invoice.pdf");
+InvoicePdfGenerator.GenerateInvoicePdf(invoicePdfPath);
+Console.WriteLine($"Invoice PDF generated at: {invoicePdfPath}");
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
