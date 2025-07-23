@@ -22,11 +22,11 @@ namespace backend.Repository
             return await _context.Saleorders.Include(so => so.Customer).ToListAsync();
         }
 
-        public async Task<SaleOrder?> GetByTripletexIdAsync(int tripletexId)
+        public async Task<SaleOrder?> GetByTripletexIdAsync(int? tripletexId)
         {
             return await _context.Saleorders
-                .Include(so => so.Customer)
-                .FirstOrDefaultAsync(so => so.TripletexId == tripletexId);
+            .Include(so => so.Customer)
+            .FirstOrDefaultAsync(so => so.TripletexId == tripletexId);
         }
 
         public async Task BulkUpsertAsync(IEnumerable<SaleOrder> saleOrders)

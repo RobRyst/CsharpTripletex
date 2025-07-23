@@ -24,7 +24,7 @@ namespace backend.Mappers
 
             return new SaleOrder
             {
-                TripletexId = dto.TripletexId,
+                TripletexId = dto.TripletexId.HasValue ? (int?)dto.TripletexId.Value : null,
                 Number = dto.Number,
                 Status = dto.Status,
                 Amount = dto.Amount,

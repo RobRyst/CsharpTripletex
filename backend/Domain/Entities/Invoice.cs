@@ -8,10 +8,7 @@ namespace backend.Domain.Entities
     [Key]
     public int Id { get; set; }
 
-    public int TripletexId { get; set; }
-
-    [Required]
-    [MaxLength(50)]
+    public int? TripletexId { get; set; }
     public string Status { get; set; } = string.Empty;
 
     public decimal Total { get; set; }

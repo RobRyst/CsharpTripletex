@@ -6,6 +6,7 @@ using System.Text;
 using backend.Domain.Entities;
 using backend.Domain.Models;
 using backend.Mappers;
+using System.Net.Http.Headers;
 
 namespace backend.Services
 {
@@ -31,27 +32,27 @@ namespace backend.Services
             _logger = logger;
         }
 
-  public async Task<IEnumerable<InvoiceModel>> GetAllAsync()
-{
-    var invoices = await _invoiceRepository.GetAllAsync();
-    return invoices.Select(InvoiceMapper.ToModel);
-}
+        public async Task<IEnumerable<InvoiceModel>> GetAllAsync()
+        {
+            var invoices = await _invoiceRepository.GetAllAsync();
+            return invoices.Select(InvoiceMapper.ToModel);
+        }
 
-public async Task<IEnumerable<InvoiceModel>> GetAllInvoicesAsync()
-{
-    var invoices = await _invoiceRepository.GetAllWithCustomerAsync();
-    return invoices.Select(InvoiceMapper.ToModel);
-}
+        public async Task<IEnumerable<InvoiceModel>> GetAllInvoicesAsync()
+        {
+            var invoices = await _invoiceRepository.GetAllWithCustomerAsync();
+            return invoices.Select(InvoiceMapper.ToModel);
+        }
 
-public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
-{
-    var invoice = await _invoiceRepository.GetByIdAsync(id);
-    if (invoice == null)
-    {
-        throw new KeyNotFoundException($"Invoice with id {id} not found");
-    }
-    return InvoiceMapper.ToModel(invoice);
-}
+        public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
+        {
+            var invoice = await _invoiceRepository.GetByIdAsync(id);
+            if (invoice == null)
+            {
+                throw new KeyNotFoundException($"Invoice with id {id} not found");
+            }
+            return InvoiceMapper.ToModel(invoice);
+        }
 
         public async Task<string> GetAuthorizationAsync()
         {
@@ -59,45 +60,39 @@ public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
         }
 
         public async Task<List<InvoiceModel>> GetInvoicesFromTripletexAsync()
-{
-    try
-    {
-        var fromDate = DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd");
-        var toDate = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd");
-
-        var url = $"https://api-test.tripletex.tech/v2/invoice?invoiceDateFrom={fromDate}&invoiceDateTo={toDate}";
-
-        var authHeader = await _tokenService.GetAuthorizationAsync();
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Add("Authorization", authHeader);
-
-        _logger.LogInformation("Fetching invoices from Tripletex API from {FromDate} to {ToDate}", fromDate, toDate);
-
-        var response = await _httpClient.SendAsync(request);
-
-        if (!response.IsSuccessStatusCode)
         {
-            var errorContent = await response.Content.ReadAsStringAsync();
-            _logger.LogError("Error fetching invoices: {StatusCode} - {Error}", response.StatusCode, errorContent);
-            throw new HttpRequestException($"Invoice fetch failed: {response.StatusCode}");
+            try
+            {
+                var fromDate = DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd");
+                var toDate = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd");
+
+                var url = $"https://api-test.tripletex.tech/v2/invoice?invoiceDateFrom={fromDate}&invoiceDateTo={toDate}";
+                var authHeader = await _tokenService.GetAuthorizationAsync();
+
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("Authorization", authHeader);
+
+                _logger.LogInformation("Fetching invoices from Tripletex API from {FromDate} to {ToDate}", fromDate, toDate);
+
+                var response = await _httpClient.SendAsync(request);
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Error fetching invoices: {StatusCode} - {Error}", response.StatusCode, content);
+                    throw new HttpRequestException($"Invoice fetch failed: {response.StatusCode}");
+                }
+
+                var invoiceEntities = await ParseTripletexInvoiceResponse(content);
+                return invoiceEntities.Select(InvoiceMapper.ToModel).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching invoices from Tripletex");
+                throw;
+            }
         }
 
-        var content = await response.Content.ReadAsStringAsync();
-        var invoiceEntities = await ParseTripletexInvoiceResponse(content);
-        
-        var invoiceModels = invoiceEntities.Select(InvoiceMapper.ToModel).ToList();
-        
-        _logger.LogInformation("Successfully fetched {Count} invoices from Tripletex", invoiceModels.Count);
-        _logger.LogDebug("Tripletex Raw Invoice JSON: {Json}", content);
-        
-        return invoiceModels;
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error fetching invoices from Tripletex");
-        throw;
-    }
-}
         public async Task SyncInvoicesFromTripletexAsync()
         {
             try
@@ -116,11 +111,12 @@ public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
             }
         }
 
-        public async Task<int> CreateInvoiceInTripletexAsync(TripletexInvoiceCreateDto dto)
+    public async Task<int> CreateInvoiceInTripletexAsync(TripletexInvoiceCreateDto dto)
 {
     try
     {
         var authHeader = await _tokenService.GetAuthorizationAsync();
+
         var customer = await _customerRepository.GetByTripletexIdAsync(dto.Customer.Id);
         if (customer == null || customer.TripletexId == 0)
         {
@@ -129,65 +125,76 @@ public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
 
         var invoiceModel = InvoiceMapper.FromTripletexDto(dto, customer.Id);
 
-        var invoiceCreateDto = new TripletexInvoiceCreateDto
+        // Create invoice directly with embedded orders and order lines
+        var invoicePayload = new
         {
-            Customer = new TripletexCustomerRefDto { Id = customer.TripletexId },
-            InvoiceDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
-            InvoiceDueDate = invoiceModel.InvoiceDueDate.ToString("yyyy-MM-dd"),
-            Currency = new TripletexCurrencyRefDto { Id = 1 },
-
-            Orders = new List<TripletexOrderDto>
+            customer = new { id = customer.TripletexId },
+            invoiceDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
+            invoiceDueDate = invoiceModel.InvoiceDueDate.ToString("yyyy-MM-dd"),
+            currency = new { id = 1 }, // NOK
+            // Note: state and sendMethodDescription are read-only fields set by Tripletex
+            orders = new[]
             {
-                new TripletexOrderDto
+                new
                 {
-                    OrderDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
-                    DeliveryDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
-                    Customer = new TripletexCustomerRefDto { Id = customer.TripletexId },
-                    OrderLines = new List<TripletexOrderLineDto>
+                    orderDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
+                    deliveryDate = invoiceModel.InvoiceDate.ToString("yyyy-MM-dd"),
+                    customer = new { id = customer.TripletexId },
+                    invoicesDueIn = 14,
+                    invoicesDueInType = "DAYS",
+                    isShowOpenPostsOnInvoices = false,
+                    orderLineSorting = "PRODUCT",
+                    isPrioritizeAmountsIncludingVat = false,
+                    orderLines = new[]
                     {
-                        new TripletexOrderLineDto
+                        new
                         {
-                            Description = "Consulting services July 2025",
-                            Count = 1,
-                            UnitPriceExcludingVatCurrency = invoiceModel.Total
+                            product = new { id = 69691388 },
+                            description = "Consulting services",
+                            count = 1,
+                            unitPriceExcludingVatCurrency = invoiceModel.Total,
+                            vatType = new { id = 3 }
                         }
                     }
                 }
             }
         };
 
-        var jsonOptions = new JsonSerializerOptions
+        var invoiceRequest = new HttpRequestMessage(HttpMethod.Post, "https://api-test.tripletex.tech/v2/invoice");
+        invoiceRequest.Headers.Add("Authorization", authHeader);
+        invoiceRequest.Content = JsonContent.Create(invoicePayload);
+        invoiceRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+        _logger.LogInformation("Creating invoice with payload: {Payload}", JsonSerializer.Serialize(invoicePayload, new JsonSerializerOptions { WriteIndented = true }));
+
+        var invoiceResponse = await _httpClient.SendAsync(invoiceRequest);
+        var invoiceContent = await invoiceResponse.Content.ReadAsStringAsync();
+
+        _logger.LogInformation("Invoice creation response: {Status} - {Body}", invoiceResponse.StatusCode, invoiceContent);
+
+        if (!invoiceResponse.IsSuccessStatusCode)
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = true
-        };
-
-        var json = JsonSerializer.Serialize(invoiceCreateDto, jsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        _logger.LogInformation("Creating invoice in Tripletex with data: {Json}", json);
-
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://api-test.tripletex.tech/v2/invoice");
-        request.Headers.Add("Authorization", authHeader);
-        request.Content = content;
-
-        var response = await _httpClient.SendAsync(request);
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        _logger.LogInformation("Tripletex response: {StatusCode} - {Response}", response.StatusCode, responseBody);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogError("Error creating invoice in Tripletex: {StatusCode} - {Error}", response.StatusCode, responseBody);
-            throw new HttpRequestException($"Failed to create invoice: {response.StatusCode} - {responseBody}");
+            _logger.LogError("Invoice creation failed: {StatusCode} - {Error}", invoiceResponse.StatusCode, invoiceContent);
+            throw new HttpRequestException($"Invoice creation failed: {invoiceResponse.StatusCode} - {invoiceContent}");
         }
 
-        var result = JsonSerializer.Deserialize<TripletexResponseDto>(responseBody, new JsonSerializerOptions
+        var invoiceJson = JsonSerializer.Deserialize<TripletexResponseDto>(invoiceContent, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         });
 
-        return result?.Value?.Id ?? 0;
+        var invoiceId = invoiceJson?.Value?.Id ?? 0;
+        if (invoiceId == 0)
+        {
+            throw new Exception("Invoice ID could not be extracted from Tripletex response.");
+        }
+
+        _logger.LogInformation("Successfully created invoice with ID: {InvoiceId}", invoiceId);
+
+        // IMPORTANT: After creating the invoice, immediately fetch it back to see what Tripletex actually stored
+        await LogCreatedInvoiceDetails(invoiceId, authHeader);
+
+        return invoiceId;
     }
     catch (Exception ex)
     {
@@ -196,55 +203,143 @@ public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
     }
 }
 
+// Helper method to debug what was actually created
+    private async Task LogCreatedInvoiceDetails(int invoiceId, string authHeader)
+    {
+        try
+        {
+            var url = $"https://api-test.tripletex.tech/v2/invoice/{invoiceId}";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("Authorization", authHeader);
+
+            var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+
+            _logger.LogInformation("Created invoice details for ID {InvoiceId}: {Response}", invoiceId, content);
+
+            var jsonDoc = JsonDocument.Parse(content);
+            if (jsonDoc.RootElement.TryGetProperty("value", out var valueElement))
+            {
+                var parsedInvoice = await ParseSingleInvoiceFromTripletex(valueElement);
+                if (parsedInvoice != null)
+                {
+                    await _invoiceRepository.BulkUpsertAsync(new List<Invoice> { parsedInvoice });
+                    _logger.LogInformation("Stored created invoice with ID {InvoiceId} in local DB.", invoiceId);
+                }
+
+                // Only log what's actually available
+                decimal amount = valueElement.TryGetProperty("amountIncludingVat", out var amountElement)
+                    ? amountElement.GetDecimal()
+                    : 0;
+
+                string orderIds = "";
+                if (valueElement.TryGetProperty("orders", out var ordersElement))
+                {
+                    var orderList = ordersElement.EnumerateArray().Select(o =>
+                        o.TryGetProperty("id", out var idEl) ? idEl.GetInt32().ToString() : "N/A");
+                    orderIds = string.Join(", ", orderList);
+                }
+
+                _logger.LogInformation("Invoice {InvoiceId} created with Amount={Amount}, Orders=[{Orders}]", 
+                    invoiceId, amount, orderIds);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not fetch or store created invoice details");
+        }
+    }
 
 
-        private async Task<IEnumerable<Invoice>> ParseTripletexInvoiceResponse(string jsonResponse)
+       private async Task<IEnumerable<Invoice>> ParseTripletexInvoiceResponse(string jsonResponse)
         {
             var invoices = new List<Invoice>();
 
             try
             {
                 var jsonDoc = JsonDocument.Parse(jsonResponse);
-                if (jsonDoc.RootElement.TryGetProperty("values", out var valuesElement))
-                {
-                    foreach (var invoiceElement in valuesElement.EnumerateArray())
-                    {
-                        if (!invoiceElement.TryGetProperty("customer", out var customerElement) ||
-                            !customerElement.TryGetProperty("id", out var customerIdElement))
-                        {
-                            _logger.LogWarning("Invoice missing customer information, skipping");
-                            continue;
-                        }
-
-                        var customerTripletexId = customerIdElement.GetInt32();
-                        var customer = await _customerRepository.GetByTripletexIdAsync(customerTripletexId);
-
-                        if (customer == null)
-                        {
-                            _logger.LogWarning("Customer with TripletexId {TripletexId} not found, skipping invoice", customerTripletexId);
-                            continue;
-                        }
-
-                        var invoice = new Invoice
-                        {
-                            TripletexId = invoiceElement.GetProperty("id").GetInt32(),
-                            Status = invoiceElement.TryGetProperty("state", out var stateElement) ?
-                                stateElement.GetString() ?? "Unknown" : "Unknown",
-                            Total = invoiceElement.TryGetProperty("amount", out var amountElement) ?
-                                amountElement.GetDecimal() : 0,
-                            InvoiceCreated = invoiceElement.TryGetProperty("invoiceDate", out var invoiceDateElement) ?
-                                DateOnly.FromDateTime(invoiceDateElement.GetDateTime()) : DateOnly.FromDateTime(DateTime.UtcNow),
-                            InvoiceDueDate = invoiceElement.TryGetProperty("dueDate", out var dueDateElement) ?
-                                DateOnly.FromDateTime(dueDateElement.GetDateTime()) : DateOnly.FromDateTime(DateTime.UtcNow.AddDays(14)),
-                            CustomerId = customer.Id
-                        };
-
-                        invoices.Add(invoice);
-                    }
-                }
-                else
+                if (!jsonDoc.RootElement.TryGetProperty("values", out var valuesElement))
                 {
                     _logger.LogWarning("No 'values' property found in Tripletex response");
+                    return invoices;
+                }
+
+                foreach (var invoiceElement in valuesElement.EnumerateArray())
+                {
+                    if (!invoiceElement.TryGetProperty("customer", out var customerElement) ||
+                        !customerElement.TryGetProperty("id", out var customerIdElement))
+                    {
+                        _logger.LogWarning("Invoice missing customer information, skipping");
+                        continue;
+                    }
+
+                    var customerTripletexId = customerIdElement.GetInt32();
+                    var customer = await _customerRepository.GetByTripletexIdAsync(customerTripletexId);
+
+                    if (customer == null)
+                    {
+                        _logger.LogWarning("Customer with TripletexId {TripletexId} not found, skipping invoice", customerTripletexId);
+                        continue;
+                    }
+
+                    _logger.LogDebug("Invoice element: {InvoiceElement}", invoiceElement.GetRawText());
+
+                    string status = "Unknown";
+
+                    if (invoiceElement.TryGetProperty("state", out var stateElement))
+                    {
+                        var state = stateElement.GetString();
+                        status = MapTripletexStatusToDisplayStatus(state);
+                    }
+
+                    if (status == "Unknown")
+                    {
+                        if (invoiceElement.TryGetProperty("sendMethodDescription", out var sendMethodElement))
+                        {
+                            status = sendMethodElement.GetString() ?? "Unknown";
+                        }
+                        else if (invoiceElement.TryGetProperty("status", out var statusElement))
+                        {
+                            status = statusElement.GetString() ?? "Unknown";
+                        }
+                    }
+
+                    decimal amount = 0;
+                    if (invoiceElement.TryGetProperty("amount", out var amountElement))
+                    {
+                        amount = amountElement.GetDecimal();
+                    }
+                    else if (invoiceElement.TryGetProperty("amountIncludingVat", out var amountInclElement))
+                    {
+                        amount = amountInclElement.GetDecimal();
+                    }
+                    else if (invoiceElement.TryGetProperty("amountExcludingVat", out var amountExclElement))
+                    {
+                        amount = amountExclElement.GetDecimal();
+                    }
+
+                    var displayStatus = $"{status} {amount:N2}";
+
+                    var invoice = new Invoice
+                    {
+                        TripletexId = invoiceElement.GetProperty("id").GetInt32(),
+                        Status = displayStatus,
+                        Total = amount,
+                        InvoiceCreated = invoiceElement.TryGetProperty("invoiceDate", out var invoiceDateElement) ?
+                            DateOnly.FromDateTime(invoiceDateElement.GetDateTime()) : DateOnly.FromDateTime(DateTime.UtcNow),
+                        InvoiceDueDate = invoiceElement.TryGetProperty("dueDate", out var dueDateElement) ?
+                            DateOnly.FromDateTime(dueDateElement.GetDateTime()) : DateOnly.FromDateTime(DateTime.UtcNow.AddDays(14)),
+                        CustomerId = customer.Id,
+                        InvoiceDate = invoiceElement.TryGetProperty("invoiceDate", out var invDateElement) ?
+                            DateOnly.FromDateTime(invDateElement.GetDateTime()) : DateOnly.FromDateTime(DateTime.UtcNow),
+                        DueDate = invoiceElement.TryGetProperty("dueDate", out var dueDateElem) ?
+                            DateOnly.FromDateTime(dueDateElem.GetDateTime()) : DateOnly.FromDateTime(DateTime.UtcNow.AddDays(14))
+                    };
+
+                    _logger.LogDebug("Parsed invoice: ID={TripletexId}, Status={Status}, Total={Total}",
+                        invoice.TripletexId, invoice.Status, invoice.Total);
+
+                    invoices.Add(invoice);
                 }
             }
             catch (JsonException ex)
@@ -259,6 +354,81 @@ public async Task<InvoiceModel> GetInvoiceByIdAsync(int id)
             }
 
             return invoices;
+        }
+
+        private async Task<Invoice?> ParseSingleInvoiceFromTripletex(JsonElement valueElement)
+{
+    if (!valueElement.TryGetProperty("customer", out var customerElement) ||
+        !customerElement.TryGetProperty("id", out var customerIdElement))
+    {
+        _logger.LogWarning("Invoice missing customer info in single parse, skipping.");
+        return null;
+    }
+
+    var customerTripletexId = customerIdElement.GetInt32();
+    var customer = await _customerRepository.GetByTripletexIdAsync(customerTripletexId);
+    if (customer == null)
+    {
+        _logger.LogWarning("Customer with TripletexId {TripletexId} not found for single invoice parse", customerTripletexId);
+        return null;
+    }
+
+    string status = "Unknown";
+    if (valueElement.TryGetProperty("state", out var stateElement))
+    {
+        var state = stateElement.GetString();
+        status = MapTripletexStatusToDisplayStatus(state);
+    }
+
+    decimal amount = 0;
+    if (valueElement.TryGetProperty("amountIncludingVat", out var amountIncl))
+    {
+        amount = amountIncl.GetDecimal();
+    }
+    else if (valueElement.TryGetProperty("amount", out var amountElement))
+    {
+        amount = amountElement.GetDecimal();
+    }
+
+    var displayStatus = $"{status} {amount:N2}";
+
+    return new Invoice
+    {
+        TripletexId = valueElement.GetProperty("id").GetInt32(),
+        Status = displayStatus,
+        Total = amount,
+        InvoiceCreated = valueElement.TryGetProperty("invoiceDate", out var invoiceDateEl)
+            ? DateOnly.FromDateTime(invoiceDateEl.GetDateTime())
+            : DateOnly.FromDateTime(DateTime.UtcNow),
+        InvoiceDueDate = valueElement.TryGetProperty("invoiceDueDate", out var dueDateEl)
+            ? DateOnly.FromDateTime(dueDateEl.GetDateTime())
+            : DateOnly.FromDateTime(DateTime.UtcNow.AddDays(14)),
+        CustomerId = customer.Id,
+        InvoiceDate = valueElement.TryGetProperty("invoiceDate", out var invDateEl)
+            ? DateOnly.FromDateTime(invDateEl.GetDateTime())
+            : DateOnly.FromDateTime(DateTime.UtcNow),
+        DueDate = valueElement.TryGetProperty("invoiceDueDate", out var dueDate2El)
+            ? DateOnly.FromDateTime(dueDate2El.GetDateTime())
+            : DateOnly.FromDateTime(DateTime.UtcNow.AddDays(14))
+    };
+}
+
+
+        private string MapTripletexStatusToDisplayStatus(string? tripletexState)
+        {
+            return tripletexState?.ToUpper() switch
+            {
+                "DRAFT" => "Draft",
+                "OPEN" => "Invoice must be sent manually.",
+                "SENT" => "Sent",
+                "PAID" => "Paid",
+                "CANCELLED" => "Cancelled",
+                "CREDIT_NOTE" => "Credit note",
+                "OVERDUE" => "Overdue",
+                "REMINDER" => "Reminder sent",
+                null => "Unknown",
+                _ => tripletexState
+            };
         }
     }
 }

@@ -39,7 +39,7 @@ namespace backend.Infrastructure.Data
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedOnAdd();
-                entity.Property(e => e.TripletexId).IsRequired();
+                entity.Property(e => e.TripletexId);
                 entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.Total).IsRequired().HasColumnType("decimal(18,2)");
                 entity.Property(e => e.InvoiceCreated).IsRequired();
@@ -61,7 +61,7 @@ namespace backend.Infrastructure.Data
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedOnAdd();
-                entity.Property(e => e.TripletexId).IsRequired();
+                entity.Property(e => e.TripletexId);
                 entity.Property(e => e.Number).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.Amount).IsRequired().HasColumnType("decimal(18,2)");

@@ -23,7 +23,7 @@ namespace backend.Mappers
         public static InvoiceModel ToModel(Invoice entity) => new InvoiceModel
         {
             Id = entity.Id,
-            TripletexId = entity.TripletexId,
+            TripletexId = entity.TripletexId ?? 0,
             Total = entity.Total,
             InvoiceCreated = entity.InvoiceCreated,
             InvoiceDueDate = entity.InvoiceDueDate,
