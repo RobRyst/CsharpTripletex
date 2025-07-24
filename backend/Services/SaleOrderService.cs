@@ -216,6 +216,21 @@ namespace backend.Services
 
     _context.Saleorders.Add(order);
     await _context.SaveChangesAsync();
+    var invoiceUrl = $"https://api-test.tripletex.tech/v2/order/{orderId}/invoice";
+    var invoiceRequest = new HttpRequestMessage(HttpMethod.Post, invoiceUrl);
+    invoiceRequest.Headers.Add("Authorization", authHeader);
+
+    var invoiceResponse = await _httpClient.SendAsync(invoiceRequest);
+    var invoiceContent = await invoiceResponse.Content.ReadAsStringAsync();
+
+    if (!invoiceResponse.IsSuccessStatusCode)
+    {
+        _logger.LogError("Failed to create invoice from sale order: {StatusCode} - {Content}", invoiceResponse.StatusCode, invoiceContent);
+        throw new HttpRequestException("Failed to create invoice from sale order");
+    }
+
+    _logger.LogInformation("Successfully converted Sale Order {OrderId} into invoice", orderId);
+
     await Task.Delay(2000);
 
     return new SaleOrderDto

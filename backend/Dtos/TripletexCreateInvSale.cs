@@ -121,12 +121,12 @@ namespace backend.Dtos
 
 public class TripletexSaleOrderResponse
 {
-    public SaleOrderResponseValue Value { get; set; }
+    public SaleOrderResponseValue? Value { get; set; }
 }
 
 public class SaleOrderResponseValue
 {
     public int Id { get; set; }
-    public string OrderDate { get; set; }
+    public string? OrderDate { get; set; }
     public double Amount { get; set; }
 }

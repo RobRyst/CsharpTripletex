@@ -41,7 +41,7 @@ namespace backend.Services
                 throw new InvalidOperationException("Consumer token and employee token must be configured in appsettings.json");
             }
 
-            var expirationDate = DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd");
+            var expirationDate = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd");
             
             var url = $"https://api-test.tripletex.tech/v2/token/session/:create?consumerToken={Uri.EscapeDataString(consumerToken)}&employeeToken={Uri.EscapeDataString(employeeToken)}&expirationDate={expirationDate}";
 
