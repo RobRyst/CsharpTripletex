@@ -15,8 +15,8 @@ TripletexSync is a full-stack API integration for automating:
 
 - 🗃️ Local persistence of customer, order, and invoice data
 
-##🚀 Tech Stack
-###⚙️ Backend (API & Sync)
+## 🚀 Tech Stack
+### ⚙️ Backend (API & Sync)
 - .NET 8 / C# – ASP.NET Core Web API
 
 - Entity Framework Core – SQLite for lightweight data storage
@@ -27,40 +27,40 @@ TripletexSync is a full-stack API integration for automating:
 
 - ILogger – Centralized logging across services
 
-##✨ Features
-###🧾 Order & Invoice Automation
+## ✨ Features
+### 🧾 Order & Invoice Automation
 Create sales orders directly in Tripletex from the API
 
 Instantly generate and send invoices from orders
 
 Automatically update status and Tripletex IDs in local DB
 
-###📎 Attachment Integration
+### 📎 Attachment Integration
 - Uploads invoice.pdf to associated voucher (bilag)
 
 - Ensures correct linking of attachments via voucherId
 
 - Verifies upload success and logs outcomes
 
-###🔄 Syncing Mechanism
+### 🔄 Syncing Mechanism
 - Pulls and stores:
 
-##🧾 Invoices from Tripletex
+## 🧾 Invoices from Tripletex
 
-##📦 Sales orders
+## 📦 Sales orders
 
 - Performs upsert (insert or update)
 
 - Connects invoice ↔ voucher ↔ attachment
 
-##⚠️ Robust Logging & Error Handling
+## ⚠️ Robust Logging & Error Handling
 - Logs full error details on API failures
 
 - Handles edge cases in approval and sending steps
 
 - Structured log output with status codes and messages
 
-##🧱 Architecture
+## 🧱 Architecture
 - Service Layer – SaleOrderService, InvoiceService
 
 - Mapping Layer – Maps between DTOs, entities, and Tripletex formats
