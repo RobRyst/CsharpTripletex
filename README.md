@@ -76,3 +76,35 @@ Automatically update status and Tripletex IDs in local DB
 - PDF upload to voucher
 
 - Voucher lookups
+
+---
+
+## 🧠 What I Learned
+Building TripletexSync deepened my understanding of API integrations, automation workflows, and data synchronization between external systems and local databases. This project focused on connecting a business-critical accounting system (Tripletex) with custom logic and reliable syncing. Here’s what I gained from it:
+
+### ASP.NET Core Web API Design
+- I strengthened my skills in designing RESTful APIs using ASP.NET Core, learning how to organize controllers, services, and middleware for a clean and scalable backend application.
+
+### Entity Framework Core & SQLite
+- I applied EF Core to manage lightweight local persistence with SQLite, and practiced upsert operations and change tracking to ensure accurate data syncing and version control.
+
+### External API Integration with HttpClient
+- Communicating with the Tripletex REST API taught me how to structure request/response flows, manage authentication headers, and handle rate limits and timeouts effectively.
+
+### Order & Invoice Automation
+- Automating the creation and delivery of sales orders and invoices sharpened my understanding of business process flows and how to implement them in a real-world, API-driven context.
+
+### File Upload & Attachment Linking
+- Uploading invoice PDFs and linking them to vouchers introduced me to multipart form-data handling, validation, and correct use of API contracts for file management.
+
+### Syncing & Data Consistency
+- I developed mechanisms to pull and synchronize external data (orders, invoices) with local storage, improving my knowledge of idempotent operations and reliable state management.
+
+### Mapping & Data Transformation
+- Mapping between local models, DTOs, and Tripletex formats gave me practical experience abstracting data transformation logic for maintainability and reuse.
+
+### Logging & Error Handling
+- Implementing robust logging with ILogger helped me understand how to capture and classify errors for better observability and troubleshooting. I learned to log status codes, trace sync failures, and handle edge cases without disrupting the overall pipeline.
+
+### Layered Architecture & Clean Code
+- Structuring the solution with service, repository, and integration layers reinforced architectural best practices like separation of concerns and dependency injection, resulting in a testable and extensible codebase.
